@@ -85,5 +85,31 @@ Run the experiment
   python -m experiments.attention.attention_test.py --use_cases all --attn_extractor attr_extractor --agg_metric max --fine_tune False --attn_tester attr_tester --analysis_target benchmark --analysis_type multi --plot_params attr_attn_3_last
 ```
 
+### Experiment Sec. 5.2 (Fig. 6)
+Prerequisites
+```python
+  python -m experiments.attention.analyze_attention_weights.py --use_cases all --attn_extractor attr_extractor --agg_metric mean --fine_tune False --tok sent_pair --attn_tester attr_pattern_tester
+  python -m experiments.attention.analyze_attention_weights.py --use_cases all --attn_extractor attr_extractor --agg_metric mean --fine_tune False --tok attr_pair --attn_tester attr_pattern_tester
+  python -m experiments.attention.analyze_attention_weights.py --use_cases all --attn_extractor attr_extractor --agg_metric mean --fine_tune True --tok sent_pair --attn_tester attr_pattern_tester
+  python -m experiments.attention.analyze_attention_weights.py --use_cases all --attn_extractor attr_extractor --agg_metric mean --fine_tune True --tok attr_pair --attn_tester attr_pattern_tester
+```
+
+Run the experiment
+```python
+  python -m experiments.attention.attention_patterns.py --use_cases all --attn_extractor attr_extractor --agg_metric mean --attn_tester attr_pattern_tester --experiment all_freq --analysis_type comparison --comparison_param tune_tok
+```
+
+### Experiment Sec. 5.2.1 (Fig. 7)
+Prerequisites
+```python
+  python -m experiments.attention.analyze_attention_weights.py --use_cases all --attn_extractor attr_extractor --agg_metric mean --fine_tune False --tok sent_pair --attn_tester attr_pattern_tester
+  python -m experiments.attention.analyze_attention_weights.py --use_cases all --attn_extractor attr_extractor --agg_metric mean --fine_tune True --tok sent_pair --attn_tester attr_pattern_tester
+```
+
+Run the experiment
+```python
+  python -m experiments.attention.attention_patterns.py --use_cases all --attn_extractor attr_extractor --agg_metric mean --attn_tester attr_pattern_tester --experiment match_freq_by_layer --analysis_type comparison --comparison_param tune
+```
+
 ## License
 [MIT License](LICENSE)
