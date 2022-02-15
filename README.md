@@ -29,15 +29,28 @@ For purely demonstrative purposes, below we will train the EM model only on the 
 **Option 1**: pre-trained EM model. Only the classification layer is fine-tuned on the EM task.
 ```python
   python -m utils.bert_em_pretrain --use_cases Structured_Fodors-Zagats --tok sent_pair --experiment compute_features
-	python -m utils.bert_em_pretrain --use_cases Structured_Fodors-Zagats --tok sent_pair --experiment train
+  python -m utils.bert_em_pretrain --use_cases Structured_Fodors-Zagats --tok sent_pair --experiment train
 ```
 
 **Option 2**: fine-tuned EM model. Both the BERT architecture and the classification layer are fine-tuned on the EM task.
 ```python
   python -m utils.bert_em_fine_tuning --fit True --use_cases Structured_Fodors-Zagats --tok sent_pair
 ```
-The model will be stored in the directory *results/models/*
+The model will be stored in the directory *results/models/*.
 
+### Experiment Sec. 4.1 (Tab. 2)
+Pre-trained EM model
+```python
+  python -m utils.bert_em_pretrain --use_cases all --tok sent_pair --experiment eval
+  python -m utils.bert_em_pretrain --use_cases all --tok attr_pair --experiment eval
+```
+	
+Fine-tuned EM model
+```python
+  python -m utils.bert_em_fine_tuning --fit True --use_cases all --tok sent_pair
+  python -m utils.bert_em_fine_tuning --fit True --use_cases all --tok attr_pair
+```
+		
 
 ## License
 [MIT License](LICENSE)
