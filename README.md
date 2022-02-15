@@ -68,11 +68,22 @@ Prerequisites
   python -m experiments.get_attention_weights.py --use_cases all --multi_process True --attn_extractor token_extractor --special_tokens True --agg_metric mean --fine_tune True
 ```
 
+Run the experiment
 ```python
   python -m experiments.e2e_attention.py --use_cases Structured_Amazon-Google Structured_Beer Textual_Abt-Buy Dirty_Walmart-Amazon --experiment comparison --comparison tune --small_plot True
   python -m experiments.e2e_attention.py --use_cases Structured_Amazon-Google Structured_Beer Textual_Abt-Buy Dirty_Walmart-Amazon --fine_tune True --experiment simple --small_plot True
 ```
 
+### Experiment Sec. 5.2 (Fig. 4)
+Prerequisites
+```python
+  python -m experiments.attention.analyze_attention_weights.py --use_cases all --attn_extractor attr_extractor --agg_metric max --fine_tune False --attn_tester attr_tester
+```
+
+Run the experiment
+```python
+  python -m experiments.attention.attention_test.py --use_cases all --attn_extractor attr_extractor --agg_metric max --fine_tune False --attn_tester attr_tester --analysis_target benchmark --analysis_type multi --plot_params attr_attn_3_last
+```
 
 ## License
 [MIT License](LICENSE)
