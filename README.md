@@ -150,7 +150,7 @@ Run the experiment
 ### Experiment Sec. 6.1 (Fig. 11)
 Prerequisites
 
-Download the **fasttext** embeddings (wiki-news-300d-1M) from [here](https://fasttext.cc/docs/en/english-vectors.html) and save them in the data folder.
+Download the **fasttext** embeddings (*wiki-news-300d-1M*) from [here](https://fasttext.cc/docs/en/english-vectors.html) and save them in the data folder.
 
 ```python
   python -m experiments.get_attention_weights.py --use_cases all --multi_process True --attn_extractor word_extractor --special_tokens True --agg_metric mean --fine_tune False
@@ -167,7 +167,7 @@ Run the experiment
 ### Experiment Sec. 6.2 (Fig. 12)
 (Optional) Prerequisites
 
-Download the **fasttext** embeddings (wiki-news-300d-1M) from [here](https://fasttext.cc/docs/en/english-vectors.html) and save them in the data folder.
+Download the **fasttext** embeddings (*wiki-news-300d-1M*) from [here](https://fasttext.cc/docs/en/english-vectors.html) and save them in the data folder.
 
 If the experiment in Sec. 4.3 has been run with the flag *--save_embs*, in the following experiment we can avoid re-computing the embeddings by specifying the option *--precomputed_embs True*
 
@@ -181,7 +181,7 @@ Run the experiment
 ### Experiment Sec. 6.3 (Fig. 13)
 Prerequisites
 
-Download the **fasttext** embeddings (wiki-news-300d-1M) from [here](https://fasttext.cc/docs/en/english-vectors.html) and save them in the data folder.
+Download the **fasttext** embeddings (*wiki-news-300d-1M*) from [here](https://fasttext.cc/docs/en/english-vectors.html) and save them in the data folder.
 
 ```python
   python -m experiments.gradient.get_grads.py --use_cases all --grad_text_units words --multi_process True
