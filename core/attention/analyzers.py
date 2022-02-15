@@ -41,7 +41,7 @@ class AttentionMapAnalyzer(object):
         self.testers = testers
         self.pre_computed_attns = None
         if kwargs is not None:
-            if 'pre_computed_attns' in kwargs and kwargs['pre_computed_attns'] is not None:
+            if 'pre_computed_attns' in kwargs and kwargs['pre_computed_attns'] is not False:
                 pre_computed_attns = pickle.load(open(f"{kwargs['pre_computed_attns']}", "rb"))
                 attn_extractor.check_batch_attn_features(pre_computed_attns)
                 print("Using pre-computed attentions.")
@@ -367,7 +367,7 @@ class AttrToClsAttentionAnalyzer(object):
         if ax is None:
             fig, ax = plt.subplots(figsize=(20, 12))
 
-        for cat in attr2cls_attn:
+        for cat_idx, cat in enumerate(attr2cls_attn):
             attr2cls_attn_by_cat = attr2cls_attn[cat]
             attr2cls_table_stats = attr2cls_attn_by_cat.describe()
             medians = attr2cls_table_stats.loc['50%', :].values
@@ -385,7 +385,12 @@ class AttrToClsAttentionAnalyzer(object):
             if cat == 'all_pred_neg' or cat == 'all_neg':
                 plot_cat = 'non-match'
 
-            ax.errorbar(**plot_data, alpha=.75, fmt='o-', capsize=6, label=plot_cat)
+            if cat_idx == 0:
+                color = 'tab:red'
+            else:
+                color = 'tab:green'
+
+            ax.errorbar(**plot_data, alpha=.75, fmt='o-', capsize=6, label=plot_cat, color=color)
             # plot_data_area = {
             #     'x': plot_data['x'],
             #     'y1': percs_25,
@@ -605,7 +610,7 @@ class EntityToEntityAttentionAnalyzer(object):
         if ax is None:
             fig, ax = plt.subplots(figsize=(20, 12))
 
-        for cat in e2e_attn:
+        for cat_idx, cat in enumerate(e2e_attn):
             e2e_attn_by_cat = e2e_attn[cat]
             e2e_table_stats = e2e_attn_by_cat.describe()
             medians = e2e_table_stats.loc['50%', :].values
@@ -623,7 +628,12 @@ class EntityToEntityAttentionAnalyzer(object):
             if cat == 'all_pred_neg':
                 plot_cat = 'non-match'
 
-            ax.errorbar(**plot_data, alpha=.75, fmt='o-', capsize=3, capthick=1, label=plot_cat)
+            if cat_idx == 0:
+                color = 'tab:red'
+            else:
+                color = 'tab:green'
+
+            ax.errorbar(**plot_data, alpha=.75, fmt='o-', capsize=3, capthick=1, label=plot_cat, color=color)
             # plot_data_area = {
             #     'x': plot_data['x'],
             #     'y1': percs_25,
@@ -670,6 +680,7 @@ class EntityToEntityAttentionAnalyzer(object):
                                                                        legend=False)
             if idx % ncols == 0:
                 ax.set_ylabel('Entity to entity attention', fontsize=16)
+            ax.set_xlabel('Layers', fontsize=16)
 
         handles, labels = ax.get_legend_handles_labels()
         label_map = {'all_pos': 'match', 'all_neg': 'non-match'}
@@ -799,8 +810,13 @@ class TopKAttentionAnalyzer(object):
         else:
             if topk_method == 'quantile':
                 thr = np.quantile(attns, 0.8)
-                idxs = np.where(attns >= thr)[0]
-                words = [(attns[i], text_units[i]) for i in idxs]
+                if attns.ndim == 1:
+                    idxs = np.where(attns >= thr)[0]
+                    words = [(attns[i], text_units[i]) for i in idxs]
+                else:   # attns.ndim == 2
+                    row_idxs, col_idxs = np.where(attns >= thr)
+                    words = [(attns[i, j], (text_units[i], text_units[j])) for (i, j) in zip(row_idxs, col_idxs)]
+
                 top_words = list(sorted(words, key=lambda x: x[0], reverse=True))
                 if len(top_words) > int(len(attns) * 0.2):
                     new_topk = int(len(attns) * 0.2)
@@ -810,7 +826,11 @@ class TopKAttentionAnalyzer(object):
             else:
                 raise ValueError("No method found.")
 
-        topk_words_idx = np.array(attns).argsort()[-new_topk:][::-1]
+        if attns.ndim == 1:
+            topk_words_idx = np.array(attns).argsort()[-new_topk:][::-1]
+        else:
+            n = attns.shape[1]
+            topk_words_idx = list(zip(*np.argsort(attns, axis=None).__divmod__(n)))[-new_topk:][::-1]
 
         return {'sent': {'text_units': [t[1] for t in top_words], 'values': [t[0] for t in top_words],
                          'idxs': topk_words_idx, 'original_text': text_units}}

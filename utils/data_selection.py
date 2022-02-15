@@ -54,9 +54,11 @@ class Sampler(object):
         max_len = params["max_len"]
         verbose = params["verbose"]
         tokenization = params["tokenization"]
+        return_offset = params["return_offset"]
 
         return EMDataset(data, model_name, tokenization=tokenization, label_col=label_col, left_prefix=left_prefix,
-                         right_prefix=right_prefix, max_len=max_len, verbose=verbose, permute=self.permute)
+                         right_prefix=right_prefix, max_len=max_len, verbose=verbose, permute=self.permute,
+                         return_offset=return_offset)
 
     def get_match_data(self, size: int = None, seed: int = 42):
 

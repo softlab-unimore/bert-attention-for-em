@@ -1,11 +1,17 @@
+import os.path
+
 import nltk
 import numpy as np
 from nltk.corpus import wordnet, stopwords
 import random
 import logging
 import string
-nltk.download('wordnet')
-nltk.download('stopwords')
+import itertools
+import pandas as pd
+from nltk import ngrams
+from tqdm import trange
+#nltk.download('wordnet')
+#nltk.download('stopwords')
 
 
 def get_synonyms_from_sent(word, sent):
@@ -176,7 +182,7 @@ def get_most_similar_words_from_sent_pair(sent1: list, sent2: list, topk: int):
         min_dist_idx = np.argmin([nltk.edit_distance(w1, w2) for w2 in sent2])
         min_dist_word = sent2[min_dist_idx]
         min_dist = nltk.edit_distance(w1, min_dist_word)
-        if min_dist < 0.2:
+        if min_dist < 2:
             words_by_sim.append((w1, min_dist_word, min_dist))
 
     topk_words = sorted(words_by_sim, key=lambda x: x[2])
@@ -198,3 +204,168 @@ def get_most_similar_words_from_sent_pair(sent1: list, sent2: list, topk: int):
         out_words = out_words[:-1]
 
     return out_words
+
+
+def get_syntactically_similar_words_from_sent_pair(sent1, sent2, thr, metric, eq=False, return_idxs=False,
+                                                   return_sims=False):
+
+    assert isinstance(sent1, list), "Wrong data type for parameter 'sent1'."
+    assert len(sent1) > 0, "Empty sentence1 tokens."
+    assert isinstance(sent2, list), "Wrong data type for parameter 'sent2'."
+    assert len(sent2) > 0, "Empty sentence2 tokens."
+    assert isinstance(metric, str)
+    assert metric in ['edit', 'jaccard'], "Wrong metric."
+    assert isinstance(eq, bool)
+    if metric == 'edit':
+        assert isinstance(thr, int)
+    elif metric == 'jaccard':
+        assert isinstance(thr, float)
+    else:
+        raise NotImplementedError()
+
+    similar_words = []
+    similar_words_idxs = []
+    similar_words_sims = []
+    all_pairs = list(itertools.product(sent1, sent2))
+    all_pair_idxs = list(itertools.product(range(len(sent1)), range(len(sent2))))
+    for idx, pair in enumerate(all_pairs):
+        left_word, right_word = pair[0], pair[1]
+
+        # remove pairs of words composed by equal words
+        # if left_word == right_word:
+        #     continue
+
+        if len(left_word) < 3 or len(right_word) < 3:
+            continue
+
+        # left_word = left_word.replace('.0', '')
+        # right_word = right_word.replace('.0', '')
+
+        if metric == 'edit':
+            syntax_score = nltk.edit_distance(left_word, right_word)
+        elif metric == 'jaccard':
+            left_char_3grams = list(ngrams(left_word, 3))
+            right_char_3grams = list(ngrams(right_word, 3))
+            intersection = set(left_char_3grams).intersection(set(right_char_3grams))
+            union = set(left_char_3grams).union(set(right_char_3grams))
+            syntax_score = len(intersection) / len(union)
+        else:
+            raise NotImplementedError()
+
+        if eq is True:
+            syntax_cond = syntax_score == thr
+        else:
+            if metric == 'edit':
+                syntax_cond = syntax_score < thr
+            elif metric == 'jaccard':
+                syntax_cond = syntax_score > thr
+            else:
+                raise NotImplementedError()
+
+        if syntax_cond:
+            similar_words.append((left_word, right_word, syntax_score))
+            similar_words_idxs.append(all_pair_idxs[idx])
+            similar_words_sims.append(syntax_score)
+
+    out_dict = {'word_pairs': similar_words}
+    if return_idxs is True:
+        out_dict['word_pair_idxs'] = similar_words_idxs
+    if return_sims is True:
+        out_dict['word_pair_sims'] = similar_words_sims
+
+    return out_dict
+
+
+def get_semantically_similar_words_from_sent_pair(sent1, sent2, model, thr, return_idxs=False, return_sims=False):
+    assert isinstance(sent1, list), "Wrong data type for parameter 'sent1'."
+    assert len(sent1) > 0, "Empty sentence1 tokens."
+    assert isinstance(sent2, list), "Wrong data type for parameter 'sent2'."
+    assert len(sent2) > 0, "Empty sentence2 tokens."
+    assert isinstance(thr, float), "Wrong data type for parameter 'thr'."
+
+    similar_words = []
+    similar_words_idxs = []
+    similar_words_sims = []
+    all_pairs = list(itertools.product(sent1, sent2))
+    all_pair_idxs = list(itertools.product(range(len(sent1)), range(len(sent2))))
+    for idx, pair in enumerate(all_pairs):
+        left_word, right_word = pair[0], pair[1]
+
+        # remove pairs of words composed by equal words
+        # if left_word == right_word:
+        #     continue
+
+        if len(left_word) < 3 or len(right_word) < 3:
+            continue
+
+        # left_word = left_word.replace('.0', '')
+        # right_word = right_word.replace('.0', '')
+
+        if left_word in model and right_word in model:
+            sim = model.similarity(left_word, right_word)
+            if sim > thr:
+                similar_words.append((left_word, right_word, sim))
+                similar_words_idxs.append(all_pair_idxs[idx])
+                similar_words_sims.append(sim)
+
+    out_dict = {'word_pairs': similar_words}
+    if return_idxs is True:
+        out_dict['word_pair_idxs'] = similar_words_idxs
+    if return_sims is True:
+        out_dict['word_pair_sims'] = similar_words_sims
+
+    return out_dict
+
+
+def get_similar_word_pairs(pair_of_entities, sim_type, metric, thrs, op_eq, sem_emb_model=None, continuous_res=False,
+                           word_min_len=3):
+    assert isinstance(sim_type, str)
+    assert sim_type in ['syntax', 'semantic']
+    assert isinstance(thrs, list)
+    assert len(thrs) > 0
+    if sim_type == 'semantic':
+        assert sem_emb_model is not None
+
+    word_pairs_map = {thr: {'idxs': [], 'pairs': [], 'sims': [], 'num_all_pairs': 0} for thr in thrs}
+
+    # loop over the entity pairs
+    for idx in trange(len(pair_of_entities)):
+        pair = pair_of_entities[idx]
+        left_entity = pair[0]
+        right_entity = pair[1]
+
+        # Get textual entity representation
+        left_sent = ' '.join([str(val) for val in left_entity if not pd.isnull(val)]).split()
+        if word_min_len is not None:
+            left_sent = [token.replace('.0', '') for token in left_sent if len(token) > word_min_len]
+        right_sent = ' '.join([str(val) for val in right_entity if not pd.isnull(val)]).split()
+        if word_min_len is not None:
+            right_sent = [token.replace('.0', '') for token in right_sent if len(token) > word_min_len]
+
+        # Get word pairs with a distance/similarity smaller/greater than the input thresholds
+        for thr in thrs:
+
+            if sim_type == 'syntax':
+                word_pair_res = get_syntactically_similar_words_from_sent_pair(sent1=left_sent, sent2=right_sent,
+                                                                               thr=thr, metric=metric, eq=op_eq,
+                                                                               return_sims=continuous_res)
+                word_pairs = word_pair_res['word_pairs']
+                word_pair_sims = []
+                if continuous_res is True:
+                    word_pair_sims = word_pair_res['word_pair_sims']
+            else:
+                word_pair_res = get_semantically_similar_words_from_sent_pair(sent1=left_sent, sent2=right_sent,
+                                                                              model=sem_emb_model,
+                                                                              thr=thr, return_sims=continuous_res)
+                word_pairs = word_pair_res['word_pairs']
+                word_pair_sims = []
+                if continuous_res is True:
+                    word_pair_sims = word_pair_res['word_pair_sims']
+
+            if len(word_pairs) > 0:
+                word_pairs_map[thr]['idxs'].append(idx)
+                word_pairs_map[thr]['pairs'].append(word_pairs)
+                word_pairs_map[thr]['sims'].append(word_pair_sims)
+                word_pairs_map[thr]['num_all_pairs'] += len(left_sent) * len(right_sent)
+
+    return word_pairs_map

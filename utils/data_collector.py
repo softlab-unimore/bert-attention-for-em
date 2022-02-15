@@ -6,10 +6,10 @@ from pathlib import Path
 
 
 PROJECT_DIR = Path(__file__).parent.parent
-DM_USE_CASES = ["Structured_DBLP-GoogleScholar", "Structured_DBLP-ACM",
-                "Structured_Amazon-Google", "Structured_Walmart-Amazon",
-                "Structured_Beer", "Structured_iTunes-Amazon",
-                "Structured_Fodors-Zagats", "Textual_Abt-Buy",
+DM_USE_CASES = ["Structured_Fodors-Zagats", "Structured_DBLP-GoogleScholar",
+                "Structured_DBLP-ACM", "Structured_Amazon-Google",
+                "Structured_Walmart-Amazon", "Structured_Beer",
+                "Structured_iTunes-Amazon", "Textual_Abt-Buy",
                 "Dirty_iTunes-Amazon", "Dirty_DBLP-ACM",
                 "Dirty_DBLP-GoogleScholar", "Dirty_Walmart-Amazon"]
 

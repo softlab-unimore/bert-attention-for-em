@@ -232,9 +232,13 @@ class GenericAttributeAttentionTest(object):
 
             if '_loc' not in param and plot_type == 'advanced':
                 map = ConfCreator().use_case_map
-                assert out_file_name_prefix is not None
+                # assert out_file_name_prefix is not None
+                if out_file_name_prefix is None:
+                    out_file_name = None
+                else:
+                    out_file_name = f'{out_file_name_prefix}_{param}.png'
                 plot_left_to_right_heatmap(score, vmin=vmin, vmax=vmax, title=map[title_prefix], is_annot=True,
-                                           out_file_name=f'{out_file_name_prefix}_{param}.png')
+                                           out_file_name=out_file_name)
 
             else:
 
@@ -565,7 +569,7 @@ class AttributeAttentionPatternFreqTest(object):
         assert isinstance(attn_map, np.ndarray), "Wrong data type for parameter 'attn_map'."
         assert attn_map.ndim == 2
 
-        def check_diagonal(matrix):
+        def check_diagonal_old(matrix):
             # get the average matrix value
             avg_val = matrix.mean().item()
             # get the diagonal
@@ -573,7 +577,27 @@ class AttributeAttentionPatternFreqTest(object):
             # check if all the diagonal values are greater (or equal) than the average value
             return int(all(diag >= avg_val))
 
-        def check_vertical(matrix):
+        def check_diagonal(matrix):
+            n = len(matrix)
+            extended_matrix = np.concatenate([matrix, matrix[:, :n - 1]], axis=1)
+            extended_matrix = np.concatenate([extended_matrix, extended_matrix[:n - 1, :]])
+            main_diagonal = extended_matrix.diagonal()[:n]
+            avg_main_diag = main_diagonal.mean()
+            found = True
+            for i in range(1, n - 1):
+                other_diag = extended_matrix.diagonal(i)[:n]
+                if avg_main_diag < other_diag.mean():
+                    found = False
+                    break
+
+                other_diag = extended_matrix.diagonal(-i)[:n]
+                if avg_main_diag < other_diag.mean():
+                    found = False
+                    break
+
+            return int(found)
+
+        def check_vertical_old(matrix):
             vertical_freq = 0
             vertical_locs = []
 
@@ -591,7 +615,34 @@ class AttributeAttentionPatternFreqTest(object):
 
             return vertical_freq, np.array(vertical_locs)
 
-        def check_match(matrix):
+        def check_vertical(matrix):
+            vertical_freq = 0
+            vertical_locs = []
+
+            # get the average matrix value
+            avg_val = matrix.mean().item()
+            majority_num = len(matrix) // 2
+
+            # loop over the columns and check if all the column values are greater (or equal) than the average value
+            for col_idx in range(matrix.shape[1]):
+                col = matrix[:, col_idx]
+                if np.sum(col >= avg_val) >= majority_num:
+                    vertical_freq += 1
+                    vertical_locs.append(1)
+                else:
+                    vertical_locs.append(0)
+
+            return vertical_freq, np.array(vertical_locs)
+
+        def check_vertical_bis(matrix):
+            avg_per_cols = matrix.mean(0)
+            max_col = np.argmax(avg_per_cols)
+            vertical_locs = np.zeros(len(avg_per_cols))
+            vertical_locs[max_col] = 1
+
+            return vertical_locs.sum(), vertical_locs
+
+        def check_match_old(matrix):
             n = matrix.shape[0] // 2
             match_exist = 0
             m = matrix.mean().item()
@@ -607,6 +658,13 @@ class AttributeAttentionPatternFreqTest(object):
                 match_exist = 1
 
             return match_exist
+
+        def check_match(matrix):
+            n = matrix.shape[0] // 2
+            rl_maa = check_diagonal(matrix[n:, :n])
+            lr_maa = check_diagonal(matrix[:n, n:])
+
+            return int(rl_maa and lr_maa)
 
         def check_diagonal_and_vertical(matrix):
             diag_exist = check_diagonal(matrix)

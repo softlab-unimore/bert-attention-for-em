@@ -12,7 +12,7 @@ class ConfCreator(object):
             'model_name': ['bert-base-uncased'],
             'tok': ['attr_pair', 'sent_pair'],
             'size': [None],
-            'fine_tune_method': [None, 'simple'],   # ['advanced', 'simple', None],
+            'fine_tune_method': [True, False],
             'extractor': {
                 'attn_extractor': ['attr_extractor', 'word_extractor'],
                 'attn_extr_params': ['special_tokens', 'agg_metric'],
@@ -57,7 +57,7 @@ class ConfCreator(object):
         return conf
 
     def get_confs(self, conf: dict, params: list):
-        conf = self.validate_conf(conf)
+        # conf = self.validate_conf(conf)
         assert isinstance(params, list), "Wrong data type for parameter 'params'."
         assert all([isinstance(p, str) for p in params]), "Wrong data type for parameter 'params'."
         assert all([p in self.conf_template for p in params]), "Wrong value for parameter 'params'."

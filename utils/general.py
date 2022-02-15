@@ -8,7 +8,6 @@ from tqdm import tqdm
 from utils.data_collector import DataCollector
 from core.data_models.em_dataset import EMDataset
 from utils.data_selection import Sampler
-from utils.fine_tuning.advanced_fine_tuning import MatcherTransformer
 from core.attention.extractors import AttributeAttentionExtractor, WordAttentionExtractor, AttentionExtractor
 from core.attention.testers import GenericAttributeAttentionTest, AttributeAttentionPatternFreqTest
 from core.attention.analyzers import AttentionMapAnalyzer
@@ -44,6 +43,9 @@ def get_dataset(conf: dict):
     max_len = conf['max_len']
     verbose = conf['verbose']
     permute = conf['permute']
+    return_offset = False
+    if 'return_offset' in conf:
+        return_offset = conf['return_offset']
 
     use_case_data_dir = get_use_case(use_case)
 
@@ -56,7 +58,8 @@ def get_dataset(conf: dict):
 
     data = pd.read_csv(dataset_path)
     dataset = EMDataset(data, model_name, tokenization=tok, label_col=label_col, left_prefix=left_prefix,
-                        right_prefix=right_prefix, max_len=max_len, verbose=verbose, permute=permute)
+                        right_prefix=right_prefix, max_len=max_len, verbose=verbose, permute=permute,
+                        return_offset=return_offset)
 
     return dataset
 
@@ -87,29 +90,26 @@ def get_sample(dataset: EMDataset, sampler_conf: dict):
     return sample
 
 
-def get_model(model_name: str, fine_tune: str = None, model_path: str = None):
+def get_model(model_name: str, fine_tune: bool = False, model_path: str = None):
     assert isinstance(model_name, str), "Wrong data type for parameter 'model_name'."
-    if fine_tune is not None:
-        assert isinstance(fine_tune, str), "Wrong data type for parameter 'fine_tune'."
-        assert fine_tune in ['simple', 'advanced'], "Wrong value for parameter 'fine_tune'."
+    assert isinstance(fine_tune, bool), "Wrong data type for parameter 'fine_tune'."
+    if fine_tune:
         assert model_path is not None, "If 'fine_tune' is not null, provide a model path."
     if model_path is not None:
         assert isinstance(model_path, str), "Wrong data type for parameter 'model_path'."
         found = False
         if os.path.exists(model_path):
             found = True
-        if os.path.exists(f"{model_path}.zip"):
-            found = True
-            model_path = f"{model_path}.zip"
         assert found, "Wrong value for parameter 'model_path'."
 
     if not fine_tune:
         model = AutoModel.from_pretrained(model_name, output_hidden_states=True, output_attentions=True)
     else:
-        if fine_tune == 'simple':
-            model = AutoModelForSequenceClassification.from_pretrained(model_path)
-        else:  # fine_tune = 'advanced':
-            model = MatcherTransformer.load_from_checkpoint(checkpoint_path=model_path)
+        # if fine_tune == 'simple':
+        #     model = AutoModelForSequenceClassification.from_pretrained(model_path)
+        # else:  # fine_tune = 'advanced':
+        #     model = MatcherTransformer.load_from_checkpoint(checkpoint_path=model_path)
+        model = AutoModelForSequenceClassification.from_pretrained(model_path)
 
     return model
 
@@ -204,8 +204,8 @@ def get_pipeline(conf):
     sample = get_sample(dataset, conf)
 
     # get model
-    if conf['fine_tune_method'] is not None:
-        model_path = os.path.join(MODELS_DIR, conf['fine_tune_method'], f"{conf['use_case']}_{conf['tok']}_tuned")
+    if conf['fine_tune_method']:
+        model_path = os.path.join(MODELS_DIR, f"{conf['use_case']}_{conf['tok']}_tuned")
     else:
         model_path = None
     model = get_model(conf['model_name'], conf['fine_tune_method'], model_path)
