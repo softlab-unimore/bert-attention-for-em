@@ -50,7 +50,18 @@ Fine-tuned EM model
   python -m utils.bert_em_fine_tuning --fit True --use_cases all --tok sent_pair
   python -m utils.bert_em_fine_tuning --fit True --use_cases all --tok attr_pair
 ```
-		
+
+### Experiment Sec. 4.2 (Fig. 1)
+```python
+  python -m experiments.fine_tuning_impact_on_attention.py --use_cases all
+```
+
+### Experiment Sec. 4.3 (Fig. 2)
+```python
+  python -m experiments.fine_tuning_impact_on_embeddings.py --use_cases all
+```
+
+### Experiment Sec. 5.1 (Fig. 3)		
 
 ## License
 [MIT License](LICENSE)
