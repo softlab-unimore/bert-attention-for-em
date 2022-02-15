@@ -61,7 +61,18 @@ Fine-tuned EM model
   python -m experiments.fine_tuning_impact_on_embeddings.py --use_cases all
 ```
 
-### Experiment Sec. 5.1 (Fig. 3)		
+### Experiment Sec. 5.1 (Fig. 3)	
+Prerequisites
+```python
+  python -m experiments.get_attention_weights.py --use_cases all --multi_process True --attn_extractor token_extractor --special_tokens True --agg_metric mean --fine_tune False	
+  python -m experiments.get_attention_weights.py --use_cases all --multi_process True --attn_extractor token_extractor --special_tokens True --agg_metric mean --fine_tune True
+```
+
+```python
+  python -m experiments.e2e_attention.py --use_cases Structured_Amazon-Google Structured_Beer Textual_Abt-Buy Dirty_Walmart-Amazon --experiment comparison --comparison tune --small_plot True
+  python -m experiments.e2e_attention.py --use_cases Structured_Amazon-Google Structured_Beer Textual_Abt-Buy Dirty_Walmart-Amazon --fine_tune True --experiment simple --small_plot True
+```
+
 
 ## License
 [MIT License](LICENSE)
