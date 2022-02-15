@@ -111,5 +111,78 @@ Run the experiment
   python -m experiments.attention.attention_patterns.py --use_cases all --attn_extractor attr_extractor --agg_metric mean --attn_tester attr_pattern_tester --experiment match_freq_by_layer --analysis_type comparison --comparison_param tune
 ```
 
+### Experiment Sec. 5.2.1 (Fig. 8)
+Prerequisites
+```python
+  python -m experiments.attention.analyze_attention_weights.py --use_cases all --attn_extractor attr_extractor --agg_metric max --fine_tune True --attn_tester attr_tester
+```
+
+Run the experiment
+```python
+  python -m experiments.attention.attention_head_pruning.py --use_cases all --attn_extractor attr_extractor --agg_metric max --attn_tester attr_tester --task compute --prune_or_mask_methods importance maa random --prune_or_mask_amounts 5 10 20 50 100 --prune True
+  python -m experiments.attention.attention_head_pruning.py --use_cases all --attn_extractor attr_extractor --agg_metric max --attn_tester attr_tester --task visualize --prune_or_mask_methods importance maa random --prune_or_mask_amounts 5 10 20 50 100 --prune True
+```
+
+### Experiment Sec. 5.3.1 (Fig. 9)
+Prerequisites
+```python
+  python -m experiments.attention.get_attention_weights.py --use_cases all --multi_process True --attn_extractor attr_extractor --special_tokens True --agg_metric max --fine_tune True
+  python -m experiments.attention.get_attention_weights.py --use_cases all --multi_process True --attn_extractor attr_extractor --special_tokens True --agg_metric max --fine_tune False
+```
+
+Run the experiment
+```python
+  python -m experiments.attention.cls_to_attr_attention.py --use_cases Structured_Fodors-Zagats Structured_DBLP-GoogleScholar Structured_DBLP-ACM Dirty_DBLP-ACM --attn_extractor attr_extractor --agg_metric max --experiment comparison --comparison tune --small_plot True
+  python -m experiments.attention.cls_to_attr_attention.py --use_cases Structured_Fodors-Zagats Structured_DBLP-GoogleScholar Structured_DBLP-ACM Dirty_DBLP-ACM --attn_extractor attr_extractor --agg_metric max --experiment simple --small_plot True --fine_tune True --data_categories all_pos all_neg
+```
+
+### Experiment Sec. 5.3.2 (Fig. 10)
+Prerequisites
+```python
+  python -m experiments.gradient.get_grads.py --use_cases all --grad_text_units attrs --multi_process True
+```
+
+Run the experiment
+```python
+  python -m experiments.gradient.plot_grads.py --use_cases all --grad_text_units attrs
+```
+
+### Experiment Sec. 6.1 (Fig. 11)
+Prerequisites
+```python
+  python -m experiments.get_attention_weights.py --use_cases all --multi_process True --attn_extractor word_extractor --special_tokens True --agg_metric mean --fine_tune False
+  python -m experiments.get_attention_weights.py --use_cases all --multi_process True --attn_extractor word_extractor --special_tokens True --agg_metric mean --fine_tune True
+```
+
+Run the experiment
+```python
+  python -m experiments.attention_to_similar_words.py --use_cases all --sim_metric cosine --sem_embs fasttext --fine_tune False --task compute
+  python -m experiments.attention_to_similar_words.py --use_cases all --sim_metric cosine --sem_embs fasttext --fine_tune True --task compute
+  python -m experiments.attention_to_similar_words.py --use_cases all --sim_metric cosine --task visualize
+```
+
+### Experiment Sec. 6.2 (Fig. 12)
+(Optional) Prerequisites
+If the experiment in Sec. 4.3 has been run with the flag *--save_embs*, in the following experiment we can avoid re-computing the embeddings by specifying the option *--precomputed_embs True*
+
+Run the experiment
+```python
+  python -m experiments.emb_sym_analysis.py --use_cases all --sim_metric cosine --sem_embs fasttext --fine_tune False --task compute
+  python -m experiments.emb_sym_analysis.py --use_cases all --sim_metric cosine --sem_embs fasttext --fine_tune True --task compute
+  python -m experiments.emb_sym_analysis.py --use_cases all --sim_metric cosine --task visualize
+```
+
+### Experiment Sec. 6.3 (Fig. 13)
+Prerequisites
+```python
+  python -m experiments.gradient.get_grads.py --use_cases all --grad_text_units words --multi_process True
+```
+
+Run the experiment
+```python
+  python -m experiments.gradient.gradient_embeddings_comparison.py --use_cases all --grad_text_units words --sim_metric cosine --sem_embs fasttext --task compute
+  python -m experiments.gradient.gradient_embeddings_comparison.py --use_cases all --grad_text_units words --sim_metric cosine --sem_embs fasttext --task visualize
+```
+
 ## License
 [MIT License](LICENSE)
