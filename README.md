@@ -20,5 +20,24 @@ $ pip install -r requirements.txt
 
 ```
 
+## Experiments
+
+### Create BERT-based EM models
+This means to create a binary classifier on top of the BERT model.
+For purely demonstrative purposes, below we will train the EM model only on the dataset Structured_Fodors-Zagats.
+
+**Option 1**: pre-trained EM model. Only the classification layer is fine-tuned on the EM task.
+```python
+  python -m utils.bert_em_pretrain --use_cases Structured_Fodors-Zagats --tok sent_pair --experiment compute_features
+	python -m utils.bert_em_pretrain --use_cases Structured_Fodors-Zagats --tok sent_pair --experiment train
+```
+
+**Option 2**: fine-tuned EM model. Both the BERT architecture and the classification layer are fine-tuned on the EM task.
+```python
+  python -m utils.bert_em_fine_tuning --fit True --use_cases Structured_Fodors-Zagats --tok sent_pair
+```
+The model will be stored in the directory *results/models/*
+
+
 ## License
 [MIT License](LICENSE)
