@@ -85,7 +85,7 @@ Run the experiment
   python -m experiments.attention.attention_test.py --use_cases all --attn_extractor attr_extractor --agg_metric max --fine_tune False --attn_tester attr_tester --analysis_target benchmark --analysis_type multi --plot_params attr_attn_3_last
 ```
 
-### Experiment Sec. 5.2 (Fig. 6)
+### Experiment Sec. 5.2 (Fig. 5)
 Prerequisites
 ```python
   python -m experiments.attention.analyze_attention_weights.py --use_cases all --attn_extractor attr_extractor --agg_metric mean --fine_tune False --tok sent_pair --attn_tester attr_pattern_tester
@@ -99,7 +99,7 @@ Run the experiment
   python -m experiments.attention.attention_patterns.py --use_cases all --attn_extractor attr_extractor --agg_metric mean --attn_tester attr_pattern_tester --experiment all_freq --analysis_type comparison --comparison_param tune_tok
 ```
 
-### Experiment Sec. 5.2.1 (Fig. 7)
+### Experiment Sec. 5.2.1 (Fig. 6)
 Prerequisites
 ```python
   python -m experiments.attention.analyze_attention_weights.py --use_cases all --attn_extractor attr_extractor --agg_metric mean --fine_tune False --tok sent_pair --attn_tester attr_pattern_tester
@@ -111,7 +111,7 @@ Run the experiment
   python -m experiments.attention.attention_patterns.py --use_cases all --attn_extractor attr_extractor --agg_metric mean --attn_tester attr_pattern_tester --experiment match_freq_by_layer --analysis_type comparison --comparison_param tune
 ```
 
-### Experiment Sec. 5.2.1 (Fig. 8)
+### Experiment Sec. 5.2.1 (Fig. 7)
 Prerequisites
 ```python
   python -m experiments.attention.analyze_attention_weights.py --use_cases all --attn_extractor attr_extractor --agg_metric max --fine_tune True --attn_tester attr_tester
@@ -123,7 +123,7 @@ Run the experiment
   python -m experiments.attention.attention_head_pruning.py --use_cases all --attn_extractor attr_extractor --agg_metric max --attn_tester attr_tester --task visualize --prune_or_mask_methods importance maa random --prune_or_mask_amounts 5 10 20 50 100 --prune True
 ```
 
-### Experiment Sec. 5.3.1 (Fig. 9)
+### Experiment Sec. 5.3.1 (Fig. 8)
 Prerequisites
 ```python
   python -m experiments.attention.get_attention_weights.py --use_cases all --multi_process True --attn_extractor attr_extractor --special_tokens True --agg_metric max --fine_tune True
@@ -136,7 +136,7 @@ Run the experiment
   python -m experiments.attention.cls_to_attr_attention.py --use_cases Structured_Fodors-Zagats Structured_DBLP-GoogleScholar Structured_DBLP-ACM Dirty_DBLP-ACM --attn_extractor attr_extractor --agg_metric max --experiment simple --small_plot True --fine_tune True --data_categories all_pos all_neg
 ```
 
-### Experiment Sec. 5.3.2 (Fig. 10)
+### Experiment Sec. 5.3.2 (Fig. 9)
 Prerequisites
 ```python
   python -m experiments.gradient.get_grads.py --use_cases all --grad_text_units attrs --multi_process True
@@ -147,7 +147,7 @@ Run the experiment
   python -m experiments.gradient.plot_grads.py --use_cases all --grad_text_units attrs
 ```
 
-### Experiment Sec. 6.1 (Fig. 11)
+### Experiment Sec. 6.1 (Fig. 10)
 Prerequisites
 
 Download the **fasttext** embeddings (*wiki-news-300d-1M*) from [here](https://fasttext.cc/docs/en/english-vectors.html) and save them in the data folder.
@@ -164,7 +164,7 @@ Run the experiment
   python -m experiments.attention_to_similar_words.py --use_cases all --sim_metric cosine --task visualize
 ```
 
-### Experiment Sec. 6.2 (Fig. 12)
+### Experiment Sec. 6.2 (Fig. 11)
 (Optional) Prerequisites
 
 Download the **fasttext** embeddings (*wiki-news-300d-1M*) from [here](https://fasttext.cc/docs/en/english-vectors.html) and save them in the data folder.
@@ -178,7 +178,7 @@ Run the experiment
   python -m experiments.emb_sym_analysis.py --use_cases all --sim_metric cosine --task visualize
 ```
 
-### Experiment Sec. 6.3 (Fig. 13)
+### Experiment Sec. 6.3 (Fig. 12)
 Prerequisites
 
 Download the **fasttext** embeddings (*wiki-news-300d-1M*) from [here](https://fasttext.cc/docs/en/english-vectors.html) and save them in the data folder.
