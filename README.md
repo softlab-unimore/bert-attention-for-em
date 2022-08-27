@@ -2,6 +2,23 @@
 State-of-the-art Entity Matching (EM) approaches rely on transformer architectures, such as *BERT*, for generating  highly contextualized embeddings of terms. The embeddings  are then used to predict whether pairs of entity descriptions refer to the same real-world entity. BERT-based EM models demonstrated to be effective, but act as black-boxes for the users, who have limited insight into the motivations behind their decisions.
 In this repo, we perform a multi-facet analysis of the components of pre-trained and fine-tuned BERT architectures applied to an EM task.
 
+For a detailed description of the work please read [our paper](https://www.vldb.org/pvldb/vol15/p1726-paganelli.pdf). Please cite the paper if you use the code from this repository in your work.
+
+```
+@article{DBLP:journals/pvldb/PaganelliBBG22,
+  author    = {Matteo Paganelli and
+               Francesco Del Buono and
+               Andrea Baraldi and
+               Francesco Guerra},
+  title     = {Analyzing How {BERT} Performs Entity Matching},
+  journal   = {Proc. {VLDB} Endow.},
+  volume    = {15},
+  number    = {8},
+  pages     = {1726--1738},
+  year      = {2022}
+}
+```
+
 ## Library
 
 ### Requirements
