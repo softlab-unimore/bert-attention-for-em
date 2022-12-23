@@ -64,8 +64,8 @@ Pre-trained EM model
 	
 Fine-tuned EM model
 ```python
-  python -m utils.bert_em_fine_tuning --fit True --use_cases all --tok sent_pair
-  python -m utils.bert_em_fine_tuning --fit True --use_cases all --tok attr_pair
+  python -m utils.bert_em_fine_tuning --fit False --use_cases all --tok sent_pair
+  python -m utils.bert_em_fine_tuning --fit False --use_cases all --tok attr_pair
 ```
 
 ### Experiment Sec. 4.2 (Fig. 1)
