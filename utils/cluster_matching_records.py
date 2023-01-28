@@ -163,23 +163,11 @@ def get_preds(model_name, eval_dataset):
 if __name__ == '__main__':
     ROOT_DIR = Path(__file__).parent.parent
     DATA_DIR = os.path.join(ROOT_DIR, "data")
-    RESULTS_DIR = "C:\\Users\\matte\\PycharmProjects\\bertAttention\\results\\models"
+    RESULTS_DIR = "C:\\Users\\matte\\PycharmProjects\\bertAttention\\results\\models\\wdc"
 
-    # data_path = r'C:\Users\matte\Downloads\cameras_gs.json.gz'
-    # integrated_data = convert_matching_pairs_to_integrated_dataset(
-    #     data=pd.read_json(data_path, compression='gzip', lines=True),
-    #     left_id='id_left',
-    #     right_id='id_right',
-    #     match_label='label',
-    #     out_entity_col_id='entity_id'
-    # )
-    # num_cliques = len(integrated_data['entity_id'].unique()) if len(integrated_data) > 0 else 0
-    #
-    # print(num_cliques)
+    data_type = 'valid'
 
-    data_type = 'train'
-
-    for uc in DM_USE_CASES:
+    for uc in ['Large_Computers', 'Large_Cameras', 'Large_Shoes', 'Large_Watches']:
         uc_type = uc.split('_')[0]
         uc_name = uc.split('_')[1]
         data_path = os.path.join(DATA_DIR, uc_type, uc_name, f'{data_type}.csv')
@@ -206,6 +194,7 @@ if __name__ == '__main__':
                 'max_len': 128,
                 'permute': False,
                 'verbose': False,
+                'bench': 'wdc'
             }
 
             data_conf = conf.copy()

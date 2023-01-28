@@ -14,7 +14,6 @@ from core.data_models.em_dataset import EMDataset
 from utils.general import get_dataset, get_sample
 from utils.data_collector import DM_USE_CASES
 from utils.data_selection import Sampler
-from experiments.robustness.perturbation import RelevanceAttributePerturbation
 from functools import reduce
 from collections import Counter
 from itertools import product
@@ -29,7 +28,9 @@ def get_most_freq_words(df: pd.DataFrame, topk: int):
         sent = reduce(lambda a, b: f'{a} {b}', row_wo_label.values)
         word_counter.update(sent.split())
 
-    return word_counter.most_common(topk)
+    if topk > 0:
+        return word_counter.most_common(topk)
+    return word_counter.most_common()[topk:]
 
 
 def get_most_freq_word_pairs(df: pd.DataFrame, topk: int):
@@ -50,7 +51,9 @@ def get_most_freq_word_pairs(df: pd.DataFrame, topk: int):
 
         pair_counter.update(pairs)
 
-    return pair_counter.most_common(topk)
+    if topk > 0:
+        return pair_counter.most_common(topk)
+    return pair_counter.most_common()[topk:]
 
 
 def get_most_freq_matching_words(dataset: EMDataset, data_type, term_type, topk):
@@ -74,6 +77,28 @@ def get_most_freq_matching_words(dataset: EMDataset, data_type, term_type, topk)
         raise ValueError()
 
     return out
+
+
+def get_random_words(df: pd.DataFrame, size: int):
+
+    word_counter = Counter()
+    for ix, row in df.iterrows():
+        row_wo_label = row.copy()
+        del row_wo_label['label']
+        sent = reduce(lambda a, b: f'{a} {b}', row_wo_label.values)
+        word_counter.update(sent.split())
+
+    permutation = np.random.permutation(len(word_counter))
+    selection = permutation[:size]
+    word_counts = word_counter.most_common()
+    return [word_counts[i] for i in selection]
+
+
+def get_random_matching_words(dataset: EMDataset, size):
+
+    data = dataset.get_complete_data()
+
+    return get_random_words(data, size)
 
 
 def inject_word_into_row(row, word, repeat=5):
@@ -166,6 +191,25 @@ def get_preds(model_name, eval_dataset: EMDataset):
     return labels, preds
 
 
+def get_flipped_preds_stats(df_by_word, model_path, orig_preds):
+    res = {}
+    for word, em_df in df_by_word.items():
+        _, mod_preds = get_preds(model_path, em_df)
+        flip_idxs = np.where((orig_preds == 0) & (mod_preds == 1))[0]
+        flip_perc = (len(flip_idxs) / len(mod_preds)) * 100
+        print(word, flip_perc)
+
+        if len(flip_idxs) > 0:
+            flip_data = em_df.get_complete_data().iloc[flip_idxs]
+            print(flip_data)
+            res[word] = {'perc': flip_perc, 'num': len(flip_idxs), 'idxs': list(flip_data.index)}
+        else:
+            res[word] = {'perc': 0, 'num': 0, 'idxs': []}
+
+    return res
+
+
+
 RESULTS_DIR = "C:\\Users\\matte\\PycharmProjects\\bertAttention\\results\\models"
 
 
@@ -191,8 +235,6 @@ if __name__ == '__main__':
                         help='boolean flag for permuting dataset attributes')
     parser.add_argument('-v', '--verbose', default=False, type=lambda x: bool(distutils.util.strtobool(x)),
                         help='boolean flag for the dataset verbose modality')
-    parser.add_argument('-perturbation_type', '--perturbation_type', choices=['attr_rel'],
-                        help='type of perturbation to apply to the data')
 
     args = parser.parse_args()
     pd.set_option('display.width', None)
@@ -200,7 +242,6 @@ if __name__ == '__main__':
     use_cases = args.use_cases
     if use_cases == ['all']:
         use_cases = DM_USE_CASES
-    pert_type = args.perturbation_type
 
     results = {}
     for use_case in use_cases:
@@ -216,90 +257,61 @@ if __name__ == '__main__':
             'verbose': args.verbose,
         }
 
+        train_conf = conf.copy()
+        train_conf['data_type'] = 'train'
+        train_dataset = get_dataset(train_conf)
+
         test_conf = conf.copy()
         test_conf['data_type'] = 'test'
         test_dataset = get_dataset(test_conf)
 
         model_path = os.path.join(RESULTS_DIR, f"{use_case}_{args.tok}_tuned")
 
-        top_match_single = get_most_freq_matching_words(test_dataset, 'match', 'singleton', topk=10)
-        # top_non_match_single = get_most_freq_matching_words(test_dataset, 'non_match', 'singleton', topk=10)
-        # top_match_pairs = get_most_freq_matching_words(test_dataset, 'match', 'pair', topk=5)
-        # top_non_match_pairs = get_most_freq_matching_words(test_dataset, 'non_match', 'pair', topk=5)
+        # Find the most frequent words in the matching records of the training set
+        top_train_match = get_most_freq_matching_words(train_dataset, 'match', 'singleton', topk=10)
 
-        # mod_match_by_single = inject_words_into_dataset(test_dataset, 'match', top_non_match_single)
-        non_match, mod_non_match_by_single = inject_words_into_dataset(
-            test_dataset, 'non_match', top_match_single, repeat=5
+        # Find the least frequent words in the matching records of the training set
+        bottom_train_match = get_most_freq_matching_words(train_dataset, 'match', 'singleton', topk=-10)
+
+        random_words = get_random_matching_words(train_dataset, size=10)
+
+        # Insert the topk words of the train (match) in the test (non-match)
+        test_non_match, top_test_non_match = inject_words_into_dataset(
+            test_dataset, 'non_match', top_train_match, repeat=5
         )
-        # mod_match_by_pair = inject_words_into_dataset(test_dataset, 'match', top_non_match_pairs)
-        # mod_non_match_by_pair = inject_words_into_dataset(test_dataset, 'non_match', top_match_pairs)
 
-        # for word, em_df in mod_match_by_single.items():
-        #     _, preds = get_preds(model_path, em_df)
-        #     flip_idxs = np.where(preds == 0)[0]
-        #     print(word, (len(flip_idxs) / len(preds)) * 100)
-        #
-        #     if len(flip_idxs) > 0:
-        #         print(em_df.get_complete_data().iloc[flip_idxs])
+        # Insert the bottomk words of the train (match) in the test (non-match)
+        _, bottom_test_non_match = inject_words_into_dataset(
+            test_dataset, 'non_match', bottom_train_match, repeat=5
+        )
 
-        _, orig_preds = get_preds(model_path, non_match)
+        # Insert the random words in the test (non-match)
+        _, random_test_non_match = inject_words_into_dataset(
+            test_dataset, 'non_match', random_words, repeat=5
+        )
 
-        res = {}
-        for word, em_df in mod_non_match_by_single.items():
-            _, mod_preds = get_preds(model_path, em_df)
-            flip_idxs = np.where((orig_preds == 0) & (mod_preds == 1))[0]
-            flip_perc = (len(flip_idxs) / len(mod_preds)) * 100
-            print(word, flip_perc)
+        _, orig_preds = get_preds(model_path, test_non_match)
 
-            if len(flip_idxs) > 0:
-                flip_data = em_df.get_complete_data().iloc[flip_idxs]
-                print(flip_data)
-                res[word] = {'perc': flip_perc, 'num': len(flip_idxs), 'idxs': list(flip_data.index)}
-            else:
-                res[word] = {'perc': 0, 'num': 0, 'idxs': []}
+        print("#" * 30)
+        print("TOP")
+        print("#" * 30)
+        top_res = get_flipped_preds_stats(top_test_non_match, model_path, orig_preds)
 
-        results[use_case] = res
+        print("#" * 30)
+        print("BOTTOM")
+        print("#" * 30)
+        bottom_res = get_flipped_preds_stats(bottom_test_non_match, model_path, orig_preds)
+
+        print("#" * 30)
+        print("RANDOM")
+        print("#" * 30)
+        random_res = get_flipped_preds_stats(random_test_non_match, model_path, orig_preds)
+
+        tot_res = {
+            'top': top_res,
+            'bottom': bottom_res,
+            'random': random_res
+        }
 
         with open(f'word_occ_hacking_{use_case}_repeat5.pickle', 'wb') as fp:
-            pickle.dump(res, fp, protocol=pickle.HIGHEST_PROTOCOL)
-
-    # with open(f'word_occ_hacking_all.pickle', 'wb') as fp:
-    #     pickle.dump(results, fp, protocol=pickle.HIGHEST_PROTOCOL)
-
-        # for em_df in mod_match_by_pair.values():
-        #     _, preds = get_preds(model_path, em_df)
-        #     print((preds == 0).sum() / len(preds) * 100)
-        #
-        # for em_df in mod_non_match_by_pair.values():
-        #     _, preds = get_preds(model_path, em_df)
-        #     print((preds == 1).sum() / len(preds) * 100)
-
-
-
-        # test_sample = get_sample(test_dataset, {'size': None, 'target_class': 1, 'permute': False, 'seeds': [42, 42]})
-        #
-        # row = test_sample[0]
-        # input_ids = row['input_ids']
-        # token_type_ids = row['token_type_ids']
-        # attention_mask = row['attention_mask']
-        #
-        # model_path = os.path.join(RESULTS_DIR, f"{use_case}_{args.tok}_tuned")
-        # tuned_model = AutoModelForSequenceClassification.from_pretrained(model_path)
-        # outputs = tuned_model(input_ids=input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask)
-        # logits = outputs['logits']
-        # pred = torch.argmax(logits, axis=1).numpy()
-
-    #     # Make perturbation
-    #     if pert_type == 'attr_rel':
-    #         pert_obj = RelevanceAttributePerturbation(test_dataset)
-    #     else:
-    #         raise NotImplementedError()
-    #
-    #     pert_dataset = pert_obj.apply_perturbation()
-    #
-    #     model_path = os.path.join(RESULTS_DIR, f"{use_case}_{args.tok}_tuned")
-    #     f1 = evaluate(model_path, pert_dataset)
-    #     results[use_case] = f1
-    #
-    # print(results)
-    # print(":)")
+            pickle.dump(tot_res, fp, protocol=pickle.HIGHEST_PROTOCOL)
