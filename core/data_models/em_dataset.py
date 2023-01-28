@@ -77,6 +77,9 @@ class EMDataset(Dataset):
     def get_complete_data(self):
         return self.complete_data
 
+    def get_original_data(self):
+        return self.data
+
     def get_columns(self):
         return self.columns
 

@@ -12,6 +12,8 @@ DM_USE_CASES = ["Structured_Fodors-Zagats", "Structured_DBLP-GoogleScholar",
                 "Structured_iTunes-Amazon", "Textual_Abt-Buy",
                 "Dirty_iTunes-Amazon", "Dirty_DBLP-ACM",
                 "Dirty_DBLP-GoogleScholar", "Dirty_Walmart-Amazon"]
+WDC_USE_CASES = ['Xlarge_Computers', 'Xlarge_Cameras', 'Xlarge_Shoes', 'Xlarge_Watches',
+                 'Large_Computers', 'Large_Cameras', 'Large_Shoes', 'Large_Watches']
 
 
 class DataCollector(object):
@@ -121,3 +123,32 @@ class DataCollector(object):
     def get_dm_benchmark(self):
         for use_case in DM_USE_CASES:
             self.get_data(use_case)
+
+
+class DataCollectorWDC:
+    def __init__(self, data_dir: str = 'data'):
+
+        assert isinstance(data_dir, str), "Wrong data directory type."
+
+        self.data_dir = os.path.join(PROJECT_DIR, data_dir)
+
+    def get_data(self, use_case):
+
+        assert isinstance(use_case, str), "Wrong use case type."
+        assert use_case in WDC_USE_CASES, "Wrong use case name."
+        use_case = use_case.replace("_", os.sep)
+
+        print(f"USE CASE: {use_case}")
+
+        use_case_data_dir = os.path.join(self.data_dir, use_case)
+
+        # check data existence
+        if not (os.path.exists(os.path.join(use_case_data_dir, "train.csv")) and
+                os.path.exists(os.path.join(use_case_data_dir, "valid.csv")) and
+                os.path.exists(os.path.join(use_case_data_dir, "test.csv"))):
+            raise ValueError("Data not found!")
+
+        else:
+            print("Data already downloaded.")
+
+        return use_case_data_dir

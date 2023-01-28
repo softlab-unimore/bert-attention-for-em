@@ -5,7 +5,7 @@ from pathlib import Path
 from collections import OrderedDict
 from tqdm import tqdm
 
-from utils.data_collector import DataCollector
+from utils.data_collector import DataCollector, DataCollectorWDC
 from core.data_models.em_dataset import EMDataset
 from utils.data_selection import Sampler
 from core.attention.extractors import AttributeAttentionExtractor, WordAttentionExtractor, AttentionExtractor
@@ -18,8 +18,15 @@ PROJECT_DIR = Path(__file__).parent.parent
 MODELS_DIR = os.path.join(PROJECT_DIR, 'results', 'models')
 
 
-def get_use_case(use_case: str):
-    data_collector = DataCollector()
+def get_use_case(use_case: str, bench='dm'):
+
+    if bench == 'dm':
+        data_collector = DataCollector()
+    elif bench == 'wdc':
+        data_collector = DataCollectorWDC()
+    else:
+        raise ValueError("Benchmark not found!")
+
     use_case_dir = data_collector.get_data(use_case)
 
     return use_case_dir
@@ -46,8 +53,12 @@ def get_dataset(conf: dict):
     return_offset = False
     if 'return_offset' in conf:
         return_offset = conf['return_offset']
+    bench = conf.get('bench')
 
-    use_case_data_dir = get_use_case(use_case)
+    if bench is None:
+        use_case_data_dir = get_use_case(use_case)
+    else:
+        use_case_data_dir = get_use_case(use_case, bench=bench)
 
     if data_type == 'train':
         dataset_path = os.path.join(use_case_data_dir, "train.csv")
