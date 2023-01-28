@@ -12,3 +12,4 @@ datasets~=1.18.2
 scikit-learn~=1.0.2
 nltk~=3.6.7
 gensim~=4.1.2
+networkx~=3.0
