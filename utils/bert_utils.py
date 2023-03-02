@@ -1,7 +1,13 @@
 import logging
+import os
+import pickle
+import re
+
+import gensim
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+import torch
+import utils.nlp as nlp
 
 
 def get_sent_word_idxs(offsets: list):
@@ -235,7 +241,7 @@ def get_entity_pair_attr_idxs(left_entity: pd.Series, right_entity: pd.Series, t
 
 
 def tokenize_entity_pair(entity1: pd.Series, entity2: pd.Series, tokenizer, tokenize_method: str, max_len: int,
-                         return_offset: bool = False):
+                         return_offset: bool = False, typeMask: str = 'off', columnMask: str = ''):
 
     assert isinstance(entity1, pd.Series), "Wrong data type for param 'entity1'."
     assert isinstance(entity2, pd.Series), "Wrong data type for param 'entity2'."
@@ -246,13 +252,34 @@ def tokenize_entity_pair(entity1: pd.Series, entity2: pd.Series, tokenizer, toke
 
     if tokenize_method == 'sent_pair':
 
-        sent1 = ' '.join([str(val) for val in entity1.to_list()])  # if val != unk_token])
-        sent2 = ' '.join([str(val) for val in entity2.to_list()])  # if val != unk_token])
+        if typeMask == 'selectCol':
+            sent1 = ''
+            sent2 = ''
+            columnMaskInt = list(map(int, re.findall('(\d+)', columnMask)))
+            for idx, val in enumerate(entity1.to_list()):
+                if idx in columnMaskInt:
+                    sent1 += str(val) + ' '
 
-        # Tokenize the text pairs
+            for idx, val in enumerate(entity2.to_list()):
+                if idx in columnMaskInt:
+                    sent2 += str(val) + ' '
+        else:
+            sent1 = ' '.join([str(val) for val in entity1.to_list()])  # if val != unk_token])
+            sent2 = ' '.join([str(val) for val in entity2.to_list()])  # if val != unk_token])
+
+
+        # Tokenize the text
+
         features = tokenizer(sent1, sent2, padding='max_length', truncation=True, return_tensors="pt",
                              max_length=max_len, add_special_tokens=True, pad_to_max_length=True,
                              return_attention_mask=True, return_offsets_mapping=return_offset)
+
+        if typeMask == 'random':
+            features = mask_random(features)
+        if typeMask == 'maskSyn':
+            features = mask_syn(sent1, sent2, features)
+        if typeMask == 'maskSem':
+            features = mask_sem(sent1, sent2, features)
 
     elif tokenize_method == 'attr':
         sent = ""
@@ -264,24 +291,36 @@ def tokenize_entity_pair(entity1: pd.Series, entity2: pd.Series, tokenizer, toke
         features = tokenizer(sent, padding='max_length', truncation=True, return_tensors="pt", max_length=max_len,
                              add_special_tokens=True, pad_to_max_length=True, return_attention_mask=True,
                              return_offsets_mapping=return_offset)
+
         sent1 = sent[:]
         sent2 = None
 
     elif tokenize_method == 'attr_pair':
         sent1 = ""
-        for attr_val in entity1.to_list():
-            sent1 += "{} [SEP] ".format(str(attr_val))
-        sent1 = sent1[:-7]  # remove last ' [SEP] '
-
         sent2 = ""
-        for attr_val in entity2.to_list():
-            sent2 += "{} [SEP] ".format(str(attr_val))
-        sent2 = sent2[:-7]  # remove last ' [SEP] '
+
+        if typeMask == 'selectCol':
+            columnMaskInt = list(map(int, re.findall('(\d+)', columnMask)))
+            if len(entity1.to_list()) < max(columnMaskInt):
+                print('Some of the column provided wont be considered because are higher than the numbers of attributes.')
+            sent1, sent2 = mask_column(entity1, entity2, columnMaskInt)
+        else:
+            for attr_val in entity1.to_list():
+                sent1 += "{} [SEP] ".format(str(attr_val))
+            sent1 = sent1[:-7]  # remove last ' [SEP] '
+
+            for attr_val in entity2.to_list():
+                sent2 += "{} [SEP] ".format(str(attr_val))
+            sent2 = sent2[:-7]  # remove last ' [SEP] '
 
         features = tokenizer(sent1, sent2, padding='max_length', truncation=True, return_tensors="pt",
                              max_length=max_len, add_special_tokens=True, pad_to_max_length=True,
                              return_attention_mask=True, return_offsets_mapping=return_offset)
 
+        if typeMask == 'random':
+            features = mask_random(features)
+        elif typeMask == 'maskSyn':
+            features = mask_syn(sent1, sent2, features, '[SEP]')
     else:
         raise ValueError("Wrong tokenization method.")
 
@@ -292,3 +331,103 @@ def tokenize_entity_pair(entity1: pd.Series, entity2: pd.Series, tokenizer, toke
     flat_features['sent2'] = sent2
 
     return flat_features
+
+def mask_random(features):
+    input_ids = features['input_ids'].unsqueeze(0)
+    rand = torch.rand(input_ids.shape)
+    mask_arr = (rand < 0.15) * (input_ids != 101) * (input_ids != 102) * (input_ids != 0)
+    selection = torch.flatten((mask_arr[0][0]).nonzero()).tolist()
+    input_ids[0][0, selection] = 103
+    features['inputs_ids'] = input_ids
+    return features
+
+def mask_column(entity1, entity2, columnMask, tokenInsert = '[MASK]'):
+    sent1 = ""
+    attr = 0
+    for attr_val in entity1.to_list():
+        if attr in columnMask:
+            attr_val = tokenInsert
+        sent1 += "{} [SEP] ".format(str(attr_val))
+        attr += 1
+
+    sent1 = sent1[:-7]  # remove last ' [SEP] '
+
+    sent2 = ""
+    attr = 0
+    for attr_val in entity2.to_list():
+        if attr in columnMask:
+            attr_val = tokenInsert
+        attr += 1
+        sent2 += "{} [SEP] ".format(str(attr_val))
+    sent2 = sent2[:-7]  # remove last ' [SEP] '
+    return sent1, sent2
+
+
+def mask_syn(sent1, sent2, features, sep: str = ' '):
+
+    top_word_pairs_by_syntax = nlp.get_syntactically_similar_words_from_sent_pair \
+        (sent1.split(sep), sent2.split(sep), 3, "edit", return_idxs=True, return_sims=True)
+
+    input_ids = features['input_ids'].unsqueeze(0)
+    for couple in top_word_pairs_by_syntax['word_pair_idxs']:
+        if sep == ' ':
+            index_mask = get_index_token_sent(couple, features.word_ids())
+        else:
+            index_mask = get_index_token_attr(couple, features.tokens(), features.word_ids())
+        for val_mask in index_mask:
+            input_ids[0][0, val_mask] = 103
+
+    features['inputs_ids'] = input_ids
+    return features
+
+
+def mask_sem(sent1, sent2, features, sep: str= ' '):
+
+    if os.path.isfile('modelPick.pkl'):
+        sem_emb_model = pickle.load(open( "modelPick.pkl", "rb"))
+    else:
+        FAST_TEXT_PATH = os.path.join('.\\bert-attention-for-em\\data', 'wiki-news-300d-1M', 'wiki-news-300d-1M.vec')
+        sem_emb_model = gensim.models.KeyedVectors.load_word2vec_format(FAST_TEXT_PATH, binary=False, encoding='utf8')
+        pickle.dump(sem_emb_model, open("modelPick.pkl", "wb"))
+
+    top_word_pairs_by_semantic = nlp.get_semantically_similar_words_from_sent_pair \
+        (sent1.split(sep), sent2.split(sep), sem_emb_model, 0.1, return_idxs=True, return_sims=True)
+
+    input_ids = features['input_ids'].unsqueeze(0)
+    for couple in top_word_pairs_by_semantic['word_pair_idxs']:
+        if sep == ' ':
+            index_mask = get_index_token_sent(couple, features.word_ids())
+        else:
+            index_mask = get_index_token_attr(couple, features.tokens(), features.word_ids())
+        for val_mask in index_mask:
+            input_ids[0][0, val_mask] = 103
+
+    features['inputs_ids'] = input_ids
+    return features
+
+
+def get_index_token_sent(couple, list_idx_word):
+
+    idx_first = [i for i, j in enumerate(list_idx_word) if j == couple[0]]
+    idx_second = [i for i, j in enumerate(list_idx_word) if j == couple[1]]
+    idx_second_none = [i for i, j in enumerate(list_idx_word) if j is None][1]
+    listMask = [j for j in idx_first if j < idx_second_none] + [j for j in idx_second if j > idx_second_none]
+    return listMask
+
+
+def get_index_token_attr(couple, list_token, list_idx_word):
+
+    listTokenMask = []
+    indexSep = [0, [i for i, j in enumerate(list_idx_word) if j is None][1], [i for i, j in enumerate(list_idx_word) if j is None][2]]
+    for i in range(len(indexSep)-1):
+        idxCouple = 0
+        countSep = 0
+        for wordIdx in range(indexSep[i]+1, indexSep[i+1]):
+            if list_token[wordIdx] == '[SEP]':
+                countSep += 1
+            if countSep == couple[idxCouple]:
+                listTokenMask.append(wordIdx)
+            if countSep > couple[idxCouple]:
+                idxCouple += 1
+                break
+    return listTokenMask

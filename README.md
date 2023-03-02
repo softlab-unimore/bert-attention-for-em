@@ -225,16 +225,32 @@ Run the experiment
 The model will be stored in the directory *results/models/*.
 
 ### Experiment Sec. 7.1 (Tab. 3)
-Pre-trained EM model
+Pre-trained EM model.
 ```python
   python -m utils.bert_em_pretrain --use_cases all --tok sent_pair --bert_model sentence-transformers/nli-bert-base --experiment eval
   python -m utils.bert_em_pretrain --use_cases all --tok attr_pair --bert_model sentence-transformers/nli-bert-base --experiment eval
 ```
 
-Fine-tuned EM model
+Fine-tuned EM model.
 ```python
   python -m utils.bert_em_fine_tuning --fit False --use_cases all --tok sent_pair --bert_model sentence-transformers/nli-bert-base
   python -m utils.bert_em_fine_tuning --fit False --use_cases all --tok attr_pair --bert_model sentence-transformers/nli-bert-base
+```
+
+
+### Experiment Sec. 7.3.1 (Fig. 14)
+
+Masking token by adopting BERT and SBERT Model. The `--typeMask` can assume value  `off`,`random`,`maskSyn`, or `maskSem`. Default value is `off`.
+
+```python
+  python -m utils.bert_em_fine_tuning_wdc --fit False --use_case Structured_Fodors-Zagats --tok sent_pair --typeMask random
+  python -m utils.bert_em_fine_tuning_wdc --fit False --use_case Structured_Fodors-Zagats --tok sent_pair --bert_model sentence-transformers/nli-bert-base --typeMask random
+```
+
+Masking attribute by adopting BERT and SBERT Model. The `--typeMask` can assume value `off`,`random` or`maskSyn`. Default value is `off`.
+```python
+  python -m utils.bert_em_fine_tuning_wdc --fit False --use_case Structured_Fodors-Zagats --tok attr_pair --typeMask random
+  python -m utils.bert_em_fine_tuning_wdc --fit False --use_case Structured_Fodors-Zagats --tok attr_pair --bert_model sentence-transformers/nli-bert-base --typeMask random
 ```
 
 

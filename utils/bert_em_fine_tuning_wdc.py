@@ -127,6 +127,10 @@ if __name__ == '__main__':
                         help='boolean flag for permuting dataset attributes')
     parser.add_argument('-v', '--verbose', default=False, type=lambda x: bool(distutils.util.strtobool(x)),
                         help='boolean flag for the dataset verbose modality')
+    parser.add_argument('-typeMask', '--typeMask', default='off', type=str,
+                        help='mask typing')
+    parser.add_argument('-columnMask', '--columnMask', default='0', type=str,
+                        help='list attributes to mask')
     parser.add_argument('-bench', '--bench', default=None, type=str,
                         help='choose dataset family')
 
@@ -161,6 +165,8 @@ if __name__ == '__main__':
         'max_len': args.max_len,
         'permute': args.permute,
         'verbose': args.verbose,
+        'typeMask': args.typeMask,
+        'columnMask': args.columnMask,
         'bench': args.bench
     }
 
