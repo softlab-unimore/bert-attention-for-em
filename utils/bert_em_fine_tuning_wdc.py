@@ -8,7 +8,7 @@ from sklearn.metrics import f1_score
 
 from core.data_models.em_dataset import EMDataset
 from utils.general import get_dataset
-from utils.data_collector import WDC_USE_CASES
+from utils.data_collector import WDC_USE_CASES, DM_USE_CASES
 from pathlib import Path
 import argparse
 import distutils.util
@@ -109,7 +109,7 @@ if __name__ == '__main__':
     # General parameters
     parser.add_argument('-fit', '--fit', type=lambda x: bool(distutils.util.strtobool(x)), required=True,
                         help='boolean flag for setting training mode')
-    parser.add_argument('-use_case', '--use_case', required=True, choices=WDC_USE_CASES + ['all'],
+    parser.add_argument('-use_case', '--use_case', required=True, choices=WDC_USE_CASES + DM_USE_CASES +  ['all'],
                         help='the names of the datasets')
     parser.add_argument('-bert_model', '--bert_model', default='bert-base-uncased', type=str,
                         help='the version of the BERT model')
@@ -127,6 +127,8 @@ if __name__ == '__main__':
                         help='boolean flag for permuting dataset attributes')
     parser.add_argument('-v', '--verbose', default=False, type=lambda x: bool(distutils.util.strtobool(x)),
                         help='boolean flag for the dataset verbose modality')
+    parser.add_argument('-bench', '--bench', default=None, type=str,
+                        help='choose dataset family')
 
     # Training parameters
     parser.add_argument('-num_epochs', '--num_epochs', default=5, type=int,
@@ -159,7 +161,7 @@ if __name__ == '__main__':
         'max_len': args.max_len,
         'permute': args.permute,
         'verbose': args.verbose,
-        'bench': "wdc"
+        'bench': args.bench
     }
 
     train_conf = conf.copy()

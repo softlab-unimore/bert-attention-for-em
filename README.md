@@ -210,5 +210,33 @@ Run the experiment
   python -m experiments.gradient.gradient_embeddings_comparison.py --use_cases all --grad_text_units words --sim_metric cosine --sem_embs fasttext --task visualize
 ```
 
+### Create SBERT-based EM models
+
+**Option 1**: pre-trained EM model. Only the classification layer is fine-tuned on the EM task.
+```python
+  python -m utils.bert_em_pretrain --use_cases Structured_Fodors-Zagats --tok sent_pair --bert_model sentence-transformers/nli-bert-base --experiment compute_features
+  python -m utils.bert_em_pretrain --use_cases Structured_Fodors-Zagats --tok sent_pair --bert_model sentence-transformers/nli-bert-base --experiment train
+```
+
+**Option 2**: fine-tuned EM model. Both the SBERT architecture and the classification layer are fine-tuned on the EM task.
+```python
+  python -m utils.bert_em_fine_tuning --fit True --use_cases Structured_Fodors-Zagats --bert_model sentence-transformers/nli-bert-base --tok sent_pair
+```
+The model will be stored in the directory *results/models/*.
+
+### Experiment Sec. 7.1 (Tab. 3)
+Pre-trained EM model
+```python
+  python -m utils.bert_em_pretrain --use_cases all --tok sent_pair --bert_model sentence-transformers/nli-bert-base --experiment eval
+  python -m utils.bert_em_pretrain --use_cases all --tok attr_pair --bert_model sentence-transformers/nli-bert-base --experiment eval
+```
+
+Fine-tuned EM model
+```python
+  python -m utils.bert_em_fine_tuning --fit False --use_cases all --tok sent_pair --bert_model sentence-transformers/nli-bert-base
+  python -m utils.bert_em_fine_tuning --fit False --use_cases all --tok attr_pair --bert_model sentence-transformers/nli-bert-base
+```
+
+
 ## License
 [MIT License](LICENSE)
