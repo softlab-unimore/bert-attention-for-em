@@ -262,5 +262,13 @@ Masking attribute by adopting BERT and SBERT Model. The `--typeMask` can assume 
 ```
 
 
+### Experiment Sec. 8.1 (Fig. 16)
+
+Degradation Test Lerf and Morf.
+```python
+  python -m utils.exp_degradation --fit False --use_cases Structured_Fodors-Zagats
+```
+
+
 ## License
 [MIT License](LICENSE)
