@@ -232,9 +232,17 @@ Pre-trained EM model.
 ```
 
 Fine-tuned EM model.
+
 ```python
   python -m utils.bert_em_fine_tuning --fit False --use_cases all --tok sent_pair --bert_model sentence-transformers/nli-bert-base
   python -m utils.bert_em_fine_tuning --fit False --use_cases all --tok attr_pair --bert_model sentence-transformers/nli-bert-base
+```
+
+### Experiment Sec 7.2 (Tab 4. Fig. 13)
+The experiment evaluates the impact  of the fine-tuning process on the BERT and SBERT model to learn the existence of attributes between the entity descriptions  which match.
+```python
+  python -m struct_experiments_gmask.py --data_dir Structured_Fodors-Zagats
+  python -m struct_experiments_gmask.py --data_dir Structured_Fodors-Zagats --model_name_or_path nli-bert-base
 ```
 
 
