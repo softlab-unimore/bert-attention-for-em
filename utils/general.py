@@ -74,7 +74,6 @@ def get_dataset(conf: dict):
                         right_prefix=right_prefix, max_len=max_len, verbose=verbose, permute=permute, typeMask=typeMask,
                         columnMask=columnMask, return_offset=return_offset)
 
-
     return dataset
 
 

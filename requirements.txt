@@ -13,3 +13,7 @@ scikit-learn~=1.0.2
 nltk~=3.6.7
 gensim~=4.1.2
 networkx~=3.0
+jsonlines~=3.1.0
+requests~=2.31.0
+six~=1.16.0
+regex~=2023.6.3

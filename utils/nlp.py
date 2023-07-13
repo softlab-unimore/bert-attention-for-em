@@ -206,8 +206,119 @@ def get_most_similar_words_from_sent_pair(sent1: list, sent2: list, topk: int):
     return out_words
 
 
+# def get_syntactically_similar_words_from_sent_pair(sent1, sent2, thr, metric, eq=False, return_idxs=False,
+#                                                    return_sims=False):
+#
+#     assert isinstance(sent1, list), "Wrong data type for parameter 'sent1'."
+#     assert len(sent1) > 0, "Empty sentence1 tokens."
+#     assert isinstance(sent2, list), "Wrong data type for parameter 'sent2'."
+#     assert len(sent2) > 0, "Empty sentence2 tokens."
+#     assert isinstance(metric, str)
+#     assert metric in ['edit', 'jaccard'], "Wrong metric."
+#     assert isinstance(eq, bool)
+#     if metric == 'edit':
+#         assert isinstance(thr, int)
+#     elif metric == 'jaccard':
+#         assert isinstance(thr, float)
+#     else:
+#         raise NotImplementedError()
+#
+#     similar_words = []
+#     similar_words_idxs = []
+#     similar_words_sims = []
+#     all_pairs = list(itertools.product(sent1, sent2))
+#     all_pair_idxs = list(itertools.product(range(len(sent1)), range(len(sent2))))
+#     for idx, pair in enumerate(all_pairs):
+#         left_word, right_word = pair[0], pair[1]
+#
+#         # remove pairs of words composed by equal words
+#         # if left_word == right_word:
+#         #     continue
+#
+#         if len(left_word) < 3 or len(right_word) < 3:
+#             continue
+#
+#         # left_word = left_word.replace('.0', '')
+#         # right_word = right_word.replace('.0', '')
+#
+#         if metric == 'edit':
+#             syntax_score = nltk.edit_distance(left_word, right_word)
+#         elif metric == 'jaccard':
+#             left_char_3grams = list(ngrams(left_word, 3))
+#             right_char_3grams = list(ngrams(right_word, 3))
+#             intersection = set(left_char_3grams).intersection(set(right_char_3grams))
+#             union = set(left_char_3grams).union(set(right_char_3grams))
+#             syntax_score = len(intersection) / len(union)
+#         else:
+#             raise NotImplementedError()
+#
+#         if eq is True:
+#             syntax_cond = syntax_score == thr
+#         else:
+#             if metric == 'edit':
+#                 syntax_cond = syntax_score < thr
+#             elif metric == 'jaccard':
+#                 syntax_cond = syntax_score > thr
+#             else:
+#                 raise NotImplementedError()
+#
+#         if syntax_cond:
+#             similar_words.append((left_word, right_word, syntax_score))
+#             similar_words_idxs.append(all_pair_idxs[idx])
+#             similar_words_sims.append(syntax_score)
+#
+#     out_dict = {'word_pairs': similar_words}
+#     if return_idxs is True:
+#         out_dict['word_pair_idxs'] = similar_words_idxs
+#     if return_sims is True:
+#         out_dict['word_pair_sims'] = similar_words_sims
+#
+#     return out_dict
+
+
+# def get_semantically_similar_words_from_sent_pair(sent1, sent2, model, thr, return_idxs=False, return_sims=False):
+#     assert isinstance(sent1, list), "Wrong data type for parameter 'sent1'."
+#     assert len(sent1) > 0, "Empty sentence1 tokens."
+#     assert isinstance(sent2, list), "Wrong data type for parameter 'sent2'."
+#     assert len(sent2) > 0, "Empty sentence2 tokens."
+#     assert isinstance(thr, float), "Wrong data type for parameter 'thr'."
+#
+#     similar_words = []
+#     similar_words_idxs = []
+#     similar_words_sims = []
+#     all_pairs = list(itertools.product(sent1, sent2))
+#     all_pair_idxs = list(itertools.product(range(len(sent1)), range(len(sent2))))
+#     for idx, pair in enumerate(all_pairs):
+#         left_word, right_word = pair[0], pair[1]
+#
+#         # remove pairs of words composed by equal words
+#         # if left_word == right_word:
+#         #     continue
+#
+#         if len(left_word) < 3 or len(right_word) < 3:
+#             continue
+#
+#         # left_word = left_word.replace('.0', '')
+#         # right_word = right_word.replace('.0', '')
+#
+#         if left_word in model and right_word in model:
+#             sim = model.similarity(left_word, right_word)
+#             if sim > thr:
+#                 similar_words.append((left_word, right_word, sim))
+#                 similar_words_idxs.append(all_pair_idxs[idx])
+#                 similar_words_sims.append(sim)
+#
+#     out_dict = {'word_pairs': similar_words}
+#     if return_idxs is True:
+#         out_dict['word_pair_idxs'] = similar_words_idxs
+#     if return_sims is True:
+#         out_dict['word_pair_sims'] = similar_words_sims
+#
+#     return out_dict
+
+# FIXME: new part
 def get_syntactically_similar_words_from_sent_pair(sent1, sent2, thr, metric, eq=False, return_idxs=False,
-                                                   return_sims=False):
+                                                   return_sims=False, ignore_tokens = None):
 
     assert isinstance(sent1, list), "Wrong data type for parameter 'sent1'."
     assert len(sent1) > 0, "Empty sentence1 tokens."
@@ -229,13 +340,21 @@ def get_syntactically_similar_words_from_sent_pair(sent1, sent2, thr, metric, eq
     all_pairs = list(itertools.product(sent1, sent2))
     all_pair_idxs = list(itertools.product(range(len(sent1)), range(len(sent2))))
     for idx, pair in enumerate(all_pairs):
-        left_word, right_word = pair[0], pair[1]
+        left_word, right_word = str(pair[0]), str(pair[1])
 
         # remove pairs of words composed by equal words
         # if left_word == right_word:
         #     continue
 
         if len(left_word) < 3 or len(right_word) < 3:
+            continue
+
+        skip = False
+        for word in ignore_tokens:
+            if word == left_word or word == right_word:
+                skip = True
+                break
+        if skip is True:
             continue
 
         # left_word = left_word.replace('.0', '')
@@ -276,7 +395,8 @@ def get_syntactically_similar_words_from_sent_pair(sent1, sent2, thr, metric, eq
     return out_dict
 
 
-def get_semantically_similar_words_from_sent_pair(sent1, sent2, model, thr, return_idxs=False, return_sims=False):
+def get_semantically_similar_words_from_sent_pair(sent1, sent2, model, thr, return_idxs=False, return_sims=False,
+                                                  ignore_tokens=None):
     assert isinstance(sent1, list), "Wrong data type for parameter 'sent1'."
     assert len(sent1) > 0, "Empty sentence1 tokens."
     assert isinstance(sent2, list), "Wrong data type for parameter 'sent2'."
@@ -289,13 +409,21 @@ def get_semantically_similar_words_from_sent_pair(sent1, sent2, model, thr, retu
     all_pairs = list(itertools.product(sent1, sent2))
     all_pair_idxs = list(itertools.product(range(len(sent1)), range(len(sent2))))
     for idx, pair in enumerate(all_pairs):
-        left_word, right_word = pair[0], pair[1]
+        left_word, right_word = str(pair[0]), str(pair[1])
 
         # remove pairs of words composed by equal words
         # if left_word == right_word:
         #     continue
 
         if len(left_word) < 3 or len(right_word) < 3:
+            continue
+
+        skip = False
+        for word in ignore_tokens:
+            if word == left_word or word == right_word:
+                skip = True
+                break
+        if skip is True:
             continue
 
         # left_word = left_word.replace('.0', '')
