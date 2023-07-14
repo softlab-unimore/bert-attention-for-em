@@ -5,6 +5,7 @@ import torch
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
 from utils.bert_utils import random_masking, syntax_masking, semantic_masking
+import numpy as np
 
 # map lm name to huggingface's pre-trained model names
 lm_mp = {'roberta': 'roberta-base',
@@ -21,6 +22,12 @@ def get_tokenizer(lm):
 class DittoDataset(Dataset):
     """EM dataset"""
 
+    stopwords = ['COL', 'VAL', 'PERSON', 'ORG', 'LOC', 'PRODUCT', 'DATE', 'QUANTITY', 'TIME', 'Artist_Name', 'name',
+                 'Released', 'CopyRight', 'content', 'Brew_Factory_Name',
+                 'Time', 'type', 'Beer_Name', 'category', 'price', 'title', 'authors', 'class', 'description',
+                 'Song_Name', 'venue', 'brand', 'Genre', 'year', 'manufacturer', 'Style', 'addr', 'phone',
+                 'modelno', 'Price', 'ABV', 'city', 'Album_Name', 'specTableContent']
+
     def __init__(self,
                  path,
                  max_len=256,
@@ -28,7 +35,8 @@ class DittoDataset(Dataset):
                  lm='roberta',
                  da=None,
                  typeMask: str = None,
-                 topk_mask: int = None):
+                 topk_mask: int = None,
+                 verbose: bool = False):
         self.tokenizer = get_tokenizer(lm)
         self.pairs = []
         self.labels = []
@@ -38,7 +46,7 @@ class DittoDataset(Dataset):
         if isinstance(path, list):
             lines = path
         else:
-            lines = open(path)
+            lines = open(path, encoding="utf8")
 
         for line in lines:
             s1, s2, label = line.strip().split('\t')
@@ -49,6 +57,7 @@ class DittoDataset(Dataset):
         self.labels = self.labels[:size]
         self.typeMask = typeMask
         self.topk_mask = topk_mask
+        self.verbose = verbose
 
     def __len__(self):
         """Return the size of the dataset."""
@@ -72,41 +81,47 @@ class DittoDataset(Dataset):
         features = self.tokenizer(
             text=left,
             text_pair=right,
-            padding='max_length',
+            padding=True,
             truncation=True,
             return_tensors="pt",
             max_length=self.max_len,
             add_special_tokens=True,
-            pad_to_max_length=True,
+            pad_to_max_length=False,
             return_attention_mask=True,
             return_token_type_ids=True
         )
 
         if self.typeMask == 'random':
             # features = mask_random(features)
-            features = random_masking(features, self.topk_mask)
+            features = random_masking(
+                features=features, topk=self.topk_mask, tokenizer=self.tokenizer, ignore_tokens=self.stopwords
+            )
         elif self.typeMask == 'maskSyn':
             sent1 = left.split()
             sent2 = right.split()
-            features = syntax_masking(sent1, sent2, features, self.topk_mask)
+            features = syntax_masking(sent1=sent1, sent2=sent2, features=features, topk=self.topk_mask)
         elif self.typeMask == 'maskSem':
             sent1 = left.split()
             sent2 = right.split()
-            features = semantic_masking(sent1, sent2, features, self.topk_mask)
+            features = semantic_masking(
+                sent1=sent1, sent2=sent2, features=features, topk=self.topk_mask, ignore_tokens=self.stopwords
+            )
         elif self.typeMask is None:
             pass
         else:
             raise ValueError("Wrong masking type!")
 
-        flat_features = {}
+        out_features = {}
         for feature in features.data:
-            flat_features[feature] = features.data[feature].squeeze(0)
-        flat_features['sent1'] = left
-        flat_features['sent2'] = right
-        flat_features['word_ids'] = features.word_ids()
-        flat_features['labels'] = torch.tensor(self.labels[idx], dtype=torch.long)
+            out_features[feature] = features.data[feature].squeeze(0)
+        out_features['labels'] = torch.tensor(self.labels[idx], dtype=torch.long)
 
-        return flat_features
+        if self.verbose:
+            out_features['sent1'] = left
+            out_features['sent2'] = right
+            out_features['word_ids'] = features.word_ids()
+
+        return out_features
 
     @staticmethod
     def pad(batch):
@@ -130,8 +145,28 @@ class DittoDataset(Dataset):
                 torch.LongTensor(x2), \
                 torch.LongTensor(y)
         else:
-            x12, y = zip(*batch)
-            maxlen = max([len(x) for x in x12])
-            x12 = [xi + [0] * (maxlen - len(xi)) for xi in x12]
-            return torch.LongTensor(x12), \
-                torch.LongTensor(y)
+            maxlen = max([len(x['input_ids']) for x in batch])
+            input_ids = [torch.cat((x['input_ids'], torch.zeros(maxlen - len(x['input_ids'])))).unsqueeze(0) for x in
+                         batch]
+            attention_mask = [
+                torch.cat((x['attention_mask'], torch.ones(maxlen - len(x['attention_mask'])))).unsqueeze(0) for x in
+                batch]
+            token_type_ids = [
+                torch.cat((x['token_type_ids'], torch.zeros(maxlen - len(x['token_type_ids'])))).unsqueeze(0) for x in
+                batch]
+
+            out = {
+                'input_ids': torch.cat(input_ids).to(dtype=torch.long),
+                'attention_mask': torch.cat(attention_mask).to(dtype=torch.long),
+                'token_type_ids': torch.cat(token_type_ids).to(dtype=torch.long),
+                'labels': torch.cat([x['labels'].unsqueeze(0) for x in batch]).to(dtype=torch.long)
+            }
+
+            if 'sent1' in batch[0]:
+                out['sent1'] = np.array([x['sent1'] for x in batch])
+            if 'sent2' in batch[0]:
+                out['sent2'] = np.array([x['sent2'] for x in batch])
+            if 'word_ids' in batch[0]:
+                out['word_ids'] = np.array([x['word_ids'] for x in batch])
+
+            return out

@@ -33,8 +33,8 @@ def evaluate(model, iterator, threshold=None):
     all_y = []
     all_probs = []
     with torch.no_grad():
-        for batch in iterator:
-            x, y = batch
+        for batch in tqdm(iterator):
+            x, y = batch['input_ids'], batch['labels']
             logits = model(x)
             probs = logits.softmax(dim=1)[:, 1]
             all_probs += probs.cpu().numpy().tolist()
@@ -103,32 +103,13 @@ def to_str(ent1, ent2, summarizer=None, max_len=256, dk_injector=None):
     return new_ent1 + '\t' + new_ent2 + '\t0'
 
 
-def classify(sentence_pairs, model,
-             lm='distilbert',
-             max_len=256,
-             threshold=None):
-    """Apply the MRPC model.
+def classify(dataset, model, threshold=None):
 
-    Args:
-        sentence_pairs (list of str): the sequence pairs
-        model (MultiTaskNet): the model in pytorch
-        max_len (int, optional): the max sequence length
-        threshold (float, optional): the threshold of the 0's class
-
-    Returns:
-        list of float: the scores of the pairs
-    """
-    inputs = sentence_pairs
-    # print('max_len =', max_len)
-    dataset = DittoDataset(inputs,
-                           max_len=max_len,
-                           lm=lm)
-    # print(dataset[0])
     iterator = data.DataLoader(dataset=dataset,
                                batch_size=len(dataset),
                                shuffle=False,
                                num_workers=0,
-                               collate_fn=DittoDataset.pad)
+                               collate_fn=DittoDataset.pad)  # FIXME: pad?
 
     # prediction
     all_probs = []
@@ -223,62 +204,16 @@ def predict(input_path, output_path, config,
     os.system('echo %s %f >> log.txt' % (run_tag, run_time))
 
 
-def tune_threshold(config, model, hp):
+def tune_threshold(valid_dataset, model):
     """Tune the prediction threshold for a given model on a validation set"""
-    validset = config['validset']
-    task = hp.task
 
-    # summarize the sequences up to the max sequence length
     set_seed(123)
-    summarizer = None
-
-    if hp.dk is not None:
-        if hp.dk == 'product':
-            injector = ProductDKInjector(config, hp.dk)
-        else:
-            injector = GeneralDKInjector(config, hp.dk)
-
-        validset = injector.transform_file(validset)
-
-    # load dev sets
-    valid_dataset = DittoDataset(validset,
-                                 max_len=hp.max_len,
-                                 lm=hp.lm)
-
-    # print(valid_dataset[0])
-
     valid_iter = data.DataLoader(dataset=valid_dataset,
                                  batch_size=64,
                                  shuffle=False,
                                  num_workers=0,
                                  collate_fn=DittoDataset.pad)
 
-    # acc, prec, recall, f1, v_loss, th = eval_classifier(model, valid_iter,
-    #                                                     get_threshold=True)
     f1, th = evaluate(model, valid_iter, threshold=None)
-
-    # verify F1
-    set_seed(123)
-    predict(validset, "tmp.jsonl", config, model,
-            summarizer=summarizer,
-            max_len=hp.max_len,
-            lm=hp.lm,
-            dk_injector=injector,
-            threshold=th)
-
-    predicts = []
-    with jsonlines.open("tmp.jsonl", mode="r") as reader:
-        for line in reader:
-            predicts.append(int(line['match']))
-    os.system("rm tmp.jsonl")
-
-    labels = []
-    with open(validset) as fin:
-        for line in fin:
-            labels.append(int(line.split('\t')[-1]))
-
-    real_f1 = sklearn.metrics.f1_score(labels, predicts)
-    print("load_f1 =", f1)
-    print("real_f1 =", real_f1)
 
     return th

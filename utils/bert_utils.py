@@ -540,21 +540,62 @@ def mask_random(features):
     return features
 
 
-def get_random_pair_indices(word_ids, topk):
-    word_ids = np.array(word_ids)
-    sep_ixs = np.where(word_ids == None)[0]
+def get_sep_token_position(word_ids):
+    # Get the separator tokens
+    # BERT uses [SEP], while RoBERTa uses </s></s>
+    # They are recognized in the word ids by None values
+    sep_ixs = np.where(np.array(word_ids) == None)[0]
     middle_sep_ix = sep_ixs[1]
-    end_sep_ix = sep_ixs[2]
-    left_unique_word_ids = np.unique(word_ids[1:middle_sep_ix])
-    right_unique_word_ids = np.unique(word_ids[middle_sep_ix + 1: end_sep_ix])
-    left_words = torch.randperm(len(left_unique_word_ids))[:topk]
-    right_words = torch.randperm(len(right_unique_word_ids))[:topk]
+
+    return middle_sep_ix
+
+
+def get_random_pair_indices(left_words, right_words, topk):
+
+    left_words = left_words[torch.randperm(len(left_words))][:topk]
+    right_words = right_words[torch.randperm(len(right_words))][:topk]
     return list(zip(left_words, right_words))
 
 
-def random_masking(features, topk):
+def get_left_and_right_words(word_ids):
+
+    # Find the middle special tokens that separate left and right words
+    sep_ix = get_sep_token_position(word_ids)
+    left_words = [word for word in word_ids[:sep_ix] if isinstance(word, int)]
+    right_words = [word for word in word_ids[sep_ix + 1:] if isinstance(word, int)]
+
+    return np.unique(left_words), np.unique(right_words)
+
+
+def random_masking(features, topk, tokenizer, ignore_tokens):
+
+    # Select some top-k random words to mask
+    # Ignore the special words (e.g., special tokens and some meta-words)
+
+    # Get the word indices
     word_ids = features.word_ids()
-    word_pairs = get_random_pair_indices(word_ids, topk)
+    left_words, right_words = get_left_and_right_words(word_ids)
+
+    # Filter-out the indices associated to special words
+    # Get the raw sentence associated to the input token ids
+    sent = tokenizer.convert_tokens_to_string(tokenizer.convert_ids_to_tokens(features.data['input_ids'][0]))
+    # Get the left and right sentences
+    left_sent, right_sent = sent.split('</s></s>') if '</s></s>' in sent else sent.split('[SEP]')
+    # Clean the sentences from special tokens
+    left_sent = left_sent.replace('<s>', '').replace('[CLS]', '').replace('/', ' / ').replace('-', ' - ')
+    right_sent = right_sent.replace('</s>', '').replace('[SEP]', '').replace('/', ' / ').replace('-', ' - ')
+    # Consistency check
+    assert left_words.max() == len(left_sent.split()) - 1
+    assert right_words.max() == len(right_sent.split()) - 1
+    # Get the indices of the words that have to be ignored
+    ignore_left = [ix for ix, word in enumerate(left_sent.split()) if word in ignore_tokens]
+    ignore_right = [ix for ix, word in enumerate(right_sent.split()) if word in ignore_tokens]
+    # Get the remaining words
+    left_words = left_words[~np.isin(left_words, ignore_left)]
+    right_words = right_words[~np.isin(right_words, ignore_right)]
+
+    # Extract some random word positions
+    word_pairs = get_random_pair_indices(left_words, right_words, topk)
 
     input_ids = features['input_ids'].unsqueeze(0)
     for pair in word_pairs:
@@ -605,16 +646,20 @@ def syntax_masking(sent1, sent2, features, topk):
     return features
 
 
-def semantic_masking(sent1, sent2, features, topk):
+def semantic_masking(sent1, sent2, features, topk, ignore_tokens=None):
     if os.path.isfile('modelPick.pkl'):
-        sem_emb_model = pickle.load(open( "modelPick.pkl", "rb"))
+        sem_emb_model = pickle.load(open("modelPick.pkl", "rb"))
     else:
         FAST_TEXT_PATH = os.path.join(os.path.abspath('../..'), 'data', 'wiki-news-300d-1M', 'wiki-news-300d-1M.vec')
         sem_emb_model = gensim.models.KeyedVectors.load_word2vec_format(FAST_TEXT_PATH, binary=False, encoding='utf8')
         pickle.dump(sem_emb_model, open("modelPick.pkl", "wb"))
 
-    top_word_pairs_by_semantic = nlp.get_semantically_similar_words_from_sent_pair\
-        (sent1, sent2, sem_emb_model, 0.7, return_idxs=True, return_sims=True, ignore_tokens=['[SEP]'])
+    if ignore_tokens is None:
+        ignore_tokens = []
+    ignore_tokens += ['[SEP]']
+    top_word_pairs_by_semantic = nlp.get_semantically_similar_words_from_sent_pair(
+        sent1, sent2, sem_emb_model, 0.7, return_idxs=True, return_sims=True, ignore_tokens=ignore_tokens
+    )
 
     if len(top_word_pairs_by_semantic) > 0:
         order = np.array(top_word_pairs_by_semantic['word_pair_sims']).argsort()[::-1]
@@ -647,7 +692,7 @@ def mask_syn(sent1, sent2, features, sep: str = ' '):
     return features
 
 
-def mask_sem(sent1, sent2, features, sep: str= ' '):
+def mask_sem(sent1, sent2, features, sep: str = ' '):
 
     if os.path.isfile('modelPick.pkl'):
         sem_emb_model = pickle.load(open("modelPick.pkl", "rb"))
