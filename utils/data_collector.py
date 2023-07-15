@@ -158,7 +158,7 @@ class DataCollectorDitto:
     def __init__(self, data_dir: str = 'data'):
         assert isinstance(data_dir, str), "Wrong data directory type."
 
-        self.data_dir = os.path.join(PROJECT_DIR, data_dir)
+        self.data_dir = os.path.join(PROJECT_DIR, data_dir, 'ditto')
 
     def get_path(self, use_case: str, data_type: str):
         assert isinstance(use_case, str), "Wrong use case type."
@@ -168,5 +168,25 @@ class DataCollectorDitto:
 
         print(f"USE CASE: {use_case}")
 
-        return os.path.join(self.data_dir, 'ditto', use_case, f'{data_type}.txt')
+        return os.path.join(self.data_dir, use_case, f'{data_type}.txt')
 
+
+class DataCollectorSupCon:
+    def __init__(self, data_dir: str = 'data'):
+        assert isinstance(data_dir, str), "Wrong data directory type."
+
+        self.data_dir = os.path.join(PROJECT_DIR, data_dir, 'supcon')
+
+    def get_path(self, use_case: str, data_type: str):
+        assert isinstance(use_case, str), "Wrong use case type."
+        assert use_case in DM_USE_CASES, "Wrong use case name."
+        assert data_type in ['train', 'valid', 'test']
+
+        print(f"USE CASE: {use_case}")
+
+        if data_type == 'test':
+            filename = f'{use_case}-gs.json.gz'
+        else:
+            raise NotImplementedError()
+
+        return os.path.join(self.data_dir, use_case, filename)

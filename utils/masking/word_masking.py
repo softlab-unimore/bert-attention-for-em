@@ -10,12 +10,15 @@ import pickle
 
 from core.data_models.em_dataset import EMDataset
 from core.data_models.ditto_dataset import DittoDataset
+from core.data_models.supcon_dataset import ContrastiveClassificationDataset
 from utils.general import get_dataset
-from utils.data_collector import DM_USE_CASES, DataCollectorDitto
+from utils.data_collector import DM_USE_CASES, DataCollectorDitto, DataCollectorSupCon
 from utils.knowledge import GeneralDKInjector
 from core.modeling.ditto import DittoModel
 from utils.ditto_utils import tune_threshold, predict
+from core.modeling.supcon import ContrastiveClassifierModel
 from torch.utils.data import DataLoader
+from utils.supcon_utils import DataCollatorContrastiveClassification
 
 PROJECT_DIR = Path(__file__).parent.parent.parent
 RESULTS_DIR = os.path.join(PROJECT_DIR, 'results', 'models')
@@ -54,9 +57,7 @@ def load_ditto_model(path, lm='roberta'):
     return model
 
 
-def evaluate(tuned_model, eval_dataset: EMDataset, thr=None):
-    assert isinstance(eval_dataset, (EMDataset, DittoDataset)), "Wrong data type for parameter 'eval_dataset'."
-
+def evaluate(tuned_model, eval_dataset: EMDataset, thr=None, collate_fn=None):
     print("Starting the inference task...")
 
     eval_dataloader = DataLoader(
@@ -64,7 +65,7 @@ def evaluate(tuned_model, eval_dataset: EMDataset, thr=None):
         batch_size=len(eval_dataset),
         shuffle=False,
         num_workers=0,
-        collate_fn=eval_dataset.pad if isinstance(eval_dataset, DittoDataset) else None
+        collate_fn=collate_fn
     )
 
     tuned_model.to('cpu')
@@ -77,11 +78,10 @@ def evaluate(tuned_model, eval_dataset: EMDataset, thr=None):
     with torch.no_grad():
         for features in tqdm(eval_dataloader):
             input_ids = features['input_ids']
-            token_type_ids = features['token_type_ids']
-            attention_mask = features['attention_mask']
 
             batch_labels = features['labels'].numpy()
-            batch_masked_tokens = get_num_masked_words(input_ids, features['word_ids'])
+            # FIXME
+            # batch_masked_tokens = get_num_masked_words(input_ids, features['word_ids'])
 
             if isinstance(tuned_model, DittoModel):
                 logits = tuned_model(input_ids)
@@ -91,7 +91,23 @@ def evaluate(tuned_model, eval_dataset: EMDataset, thr=None):
                     thr = 0.5
                 batch_preds[batch_preds >= thr] = 1
                 batch_preds[batch_preds < thr] = 0
+
+            elif isinstance(tuned_model, ContrastiveClassifierModel):
+                attention_mask = features['attention_mask']
+                input_ids_right = features['input_ids_right']
+                attention_mask_right = features['attention_mask_right']
+                outputs = tuned_model(
+                    input_ids=input_ids, attention_mask=attention_mask, labels=features['labels'],
+                    input_ids_right=input_ids_right, attention_mask_right=attention_mask_right
+                )
+                logits = outputs[1]
+                logits[logits >= 0.5] = 1
+                logits[logits < 0.5] = 0
+                batch_preds = logits
+
             else:
+                token_type_ids = features['token_type_ids']
+                attention_mask = features['attention_mask']
                 outputs = tuned_model(input_ids=input_ids, token_type_ids=token_type_ids, attention_mask=attention_mask)
                 logits = outputs['logits']
                 batch_preds = torch.argmax(logits, axis=1)
@@ -99,17 +115,17 @@ def evaluate(tuned_model, eval_dataset: EMDataset, thr=None):
             if labels is None:
                 labels = batch_labels
                 preds = batch_preds
-                masked_tokens = batch_masked_tokens
+                # masked_tokens = batch_masked_tokens
             else:
                 labels = np.concatenate((labels, batch_labels))
                 preds = np.concatenate((preds, batch_preds))
-                masked_tokens = np.concatenate((masked_tokens, batch_masked_tokens))
+                # masked_tokens = np.concatenate((masked_tokens, batch_masked_tokens))
 
     out = {
         'preds': preds,
         'labels': labels,
         'masked_tokens': masked_tokens,
-        'masked_records': masked_tokens > 0
+        # 'masked_records': masked_tokens > 0
     }
 
     return out
@@ -166,15 +182,54 @@ def evaluate_ditto(use_case: str, lm: str, type_mask: str, topk_mask: int, max_l
         path=test_path, lm=lm, typeMask=type_mask, topk_mask=topk_mask, max_len=max_len, verbose=True
     )
 
-    a = valid_dataset[0]
-
     model_path = os.path.join(RESULTS_DIR, "ditto", f"{use_case}.pt")
     tuned_model = load_ditto_model(model_path)
 
     # Find the best classifier threshold
     threshold = tune_threshold(valid_dataset, tuned_model)
 
-    res = evaluate(tuned_model, test_dataset, thr=threshold)
+    res = evaluate(tuned_model, test_dataset, thr=threshold, collate_fn=test_dataset.pad)
+
+    # from sklearn.metrics import f1_score
+    # print(f1_score(res['labels'], res['preds']))
+
+    return res
+
+
+def evaluate_supcon(use_case: str, lm: str, type_mask: str, topk_mask: int):
+    def get_posneg():
+        if lm == ['Structured_Walmart-Amazon', 'Dirty_Walmart-Amazon']:
+            return 10
+        elif lm in ['Structured_Beer', 'Structured_Amazon-Google', 'Textual_Abt-Buy', 'Structured_Fodors-Zagats']:
+            return 9
+        elif lm == ['Structured_DBLP-ACM', 'Structured_DBLP-GoogleScholar', 'Dirty_DBLP-ACM',
+                    'Dirty_DBLP-GoogleScholar']:
+            return 8
+        elif lm == ['Structured_iTunes-Amazon', 'Dirty_iTunes-Amazon']:
+            return 7
+
+    supcon_collector = DataCollectorSupCon()
+    test_path = supcon_collector.get_path(use_case=use_case, data_type='test')
+
+    # Load the test data
+    # FIXME: add masking to the dataset
+    test_dataset = ContrastiveClassificationDataset(
+        test_path, dataset_type='test', tokenizer=lm, dataset=use_case
+    )
+
+    # Load the model
+    model_path = os.path.join(RESULTS_DIR, "supcon", f"{use_case}.bin")
+    tuned_model = ContrastiveClassifierModel(
+        checkpoint_path=model_path,
+        len_tokenizer=len(test_dataset.tokenizer),
+        model=lm,
+        frozen=True,
+        pos_neg=get_posneg(),
+        device='cpu'
+    )
+
+    data_collator = DataCollatorContrastiveClassification(tokenizer=test_dataset.tokenizer)
+    res = evaluate(tuned_model, test_dataset, collate_fn=data_collator)
 
     from sklearn.metrics import f1_score
     print(f1_score(res['labels'], res['preds']))
@@ -211,7 +266,8 @@ if __name__ == '__main__':
                         help='boolean flag for permuting dataset attributes')
     parser.add_argument('-v', '--verbose', default=False, type=lambda x: bool(distutils.util.strtobool(x)),
                         help='boolean flag for the dataset verbose modality')
-    parser.add_argument('-approach', '--approach', type=str, default='bert', choices=['bert', 'sbert', 'ditto'],
+    parser.add_argument('-approach', '--approach', type=str, default='bert',
+                        choices=['bert', 'sbert', 'ditto', 'supcon'],
                         help='the EM approach to use')
     parser.add_argument('-seed', '--seed', default=42, type=int,
                         help='seed')
@@ -224,7 +280,7 @@ if __name__ == '__main__':
 
     for use_case in use_cases:
         for token in ['sent_pair']:  # 'attr_pair', 'sent_pair'
-            for modeMask in ['maskSyn']:  # 'off', 'random', 'maskSem', 'maskSyn'
+            for modeMask in [None, 'random', 'maskSem', 'maskSyn']:  # 'off', 'random', 'maskSem', 'maskSyn'
                 for topk_mask in [3]:  # None, 3
                     if modeMask == 'selectCol' and token == 'sent_pair':
                         continue
@@ -236,6 +292,12 @@ if __name__ == '__main__':
                             use_case=use_case, lm=args.bert_model, type_mask=modeMask, topk_mask=topk_mask,
                             max_len=args.max_len
                         )
+
+                    elif args.approach == 'supcon':
+                        res = evaluate_supcon(
+                            use_case=use_case, lm=args.bert_model, type_mask=modeMask, topk_mask=topk_mask
+                        )
+
                     else:
                         res = evaluate_simple_bert_model(
                             args=args, use_case=use_case, token=token, mask_type=modeMask, topk_mask=topk_mask
