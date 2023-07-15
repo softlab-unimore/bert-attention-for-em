@@ -4,7 +4,7 @@ Code taken from https://github.com/megagonlabs/ditto/blob/master/ditto_light/dat
 import torch
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
-from utils.bert_utils import random_masking, syntax_masking, semantic_masking
+from utils.bert_utils import random_masking, syntax_masking, semantic_masking, get_left_right_words_and_ids
 import numpy as np
 
 # map lm name to huggingface's pre-trained model names
@@ -96,18 +96,22 @@ class DittoDataset(Dataset):
             features = random_masking(
                 features=features, topk=self.topk_mask, tokenizer=self.tokenizer, ignore_tokens=self.stopwords
             )
+
         elif self.typeMask == 'maskSyn':
-            sent1 = left.split()
-            sent2 = right.split()
-            features = syntax_masking(sent1=sent1, sent2=sent2, features=features, topk=self.topk_mask)
-        elif self.typeMask == 'maskSem':
-            sent1 = left.split()
-            sent2 = right.split()
-            features = semantic_masking(
+            _, _, sent1, sent2 = get_left_right_words_and_ids(self.tokenizer, features)
+            features = syntax_masking(
                 sent1=sent1, sent2=sent2, features=features, topk=self.topk_mask, ignore_tokens=self.stopwords
             )
+
+        elif self.typeMask == 'maskSem':
+            _, _, sent1, sent2 = get_left_right_words_and_ids(self.tokenizer, features)
+            features = semantic_masking(
+                sent1=sent1, sent2=sent2, features=features, topk=self.topk_mask, ignore_tokens=self.stopwords,
+            )
+
         elif self.typeMask is None:
             pass
+
         else:
             raise ValueError("Wrong masking type!")
 

@@ -165,7 +165,6 @@ def evaluate_ditto(use_case: str, lm: str, type_mask: str, topk_mask: int, max_l
     test_dataset = DittoDataset(
         path=test_path, lm=lm, typeMask=type_mask, topk_mask=topk_mask, max_len=max_len, verbose=True
     )
-    exit(1)
 
     a = valid_dataset[0]
 
@@ -225,7 +224,7 @@ if __name__ == '__main__':
 
     for use_case in use_cases:
         for token in ['sent_pair']:  # 'attr_pair', 'sent_pair'
-            for modeMask in ['random', 'maskSem', 'maskSyn']:  # 'off', 'random', 'maskSem', 'maskSyn'
+            for modeMask in ['maskSyn']:  # 'off', 'random', 'maskSem', 'maskSyn'
                 for topk_mask in [3]:  # None, 3
                     if modeMask == 'selectCol' and token == 'sent_pair':
                         continue

@@ -540,16 +540,6 @@ def mask_random(features):
     return features
 
 
-def get_sep_token_position(word_ids):
-    # Get the separator tokens
-    # BERT uses [SEP], while RoBERTa uses </s></s>
-    # They are recognized in the word ids by None values
-    sep_ixs = np.where(np.array(word_ids) == None)[0]
-    middle_sep_ix = sep_ixs[1]
-
-    return middle_sep_ix
-
-
 def get_random_pair_indices(left_words, right_words, topk):
 
     left_words = left_words[torch.randperm(len(left_words))][:topk]
@@ -557,14 +547,78 @@ def get_random_pair_indices(left_words, right_words, topk):
     return list(zip(left_words, right_words))
 
 
-def get_left_and_right_words(word_ids):
+def get_words_from_tokens(word_ids, tokens):
+    token_pieces = []
+    curr_pieces = []
+    prec_wid = None
+    for ix, wid in enumerate(word_ids):
+        if wid is not None:
+            if prec_wid is not None and prec_wid != wid:
+                token_pieces.append(curr_pieces)
+                curr_pieces = [ix]
+            else:
+                curr_pieces.append(ix)
+
+            prec_wid = wid
+
+    token_pieces.append(curr_pieces)
+
+    words = []
+    for tp_ixs in token_pieces:
+        w = ''
+        for tpi_ix in tp_ixs:
+            tpi = tokens[tpi_ix]
+            if tpi.startswith('Ġ'):  # RoBERTa
+                tpi = tpi[1:]
+            if tpi.startswith('##'):  # BERT
+                tpi = tpi[2:]
+            w += tpi
+        words.append(w)
+
+    return words
+
+
+def get_sep_token_position(word_ids):
+    # Get the separator tokens
+    # BERT uses [SEP], while RoBERTa uses </s></s>
+    # They are recognized in the word ids by None values
+    sep_ixs = np.where(np.array(word_ids) == None)[0]
+    middle_sep_ix = sep_ixs[1]
+
+    if sep_ixs[2] == sep_ixs[1] + 1:  # Two consecutive None -> RoBERTa separator
+        middle_sep_ix = sep_ixs[2]
+
+    return middle_sep_ix
+
+
+def get_left_and_right_word_ids(word_ids):
 
     # Find the middle special tokens that separate left and right words
     sep_ix = get_sep_token_position(word_ids)
-    left_words = [word for word in word_ids[:sep_ix] if isinstance(word, int)]
-    right_words = [word for word in word_ids[sep_ix + 1:] if isinstance(word, int)]
+    # left_words = [word for word in word_ids[:sep_ix] if isinstance(word, int)]
+    # right_words = [word for word in word_ids[sep_ix + 1:] if isinstance(word, int)]
+    left_words = word_ids[:sep_ix]
+    right_words = word_ids[sep_ix:]
 
-    return np.unique(left_words), np.unique(right_words)
+    if left_words[-1] is not None:
+        left_words.append(None)
+    if right_words[-1] is not None:
+        right_words.append(None)
+
+    return sep_ix, left_words, right_words
+
+
+def get_left_right_words_and_ids(tokenizer, features):
+    word_ids = features.word_ids()
+    sep_ix, left_word_ids, right_word_ids = get_left_and_right_word_ids(word_ids)
+
+    tokens = tokenizer.convert_ids_to_tokens(features.data['input_ids'][0])
+    left_words = get_words_from_tokens(left_word_ids, tokens[:sep_ix])
+    right_words = get_words_from_tokens(right_word_ids, tokens[sep_ix:])
+    assert len(left_words) == left_word_ids[-2] + 1
+    assert len(right_words) == right_word_ids[-2] + 1
+
+    return left_word_ids, right_word_ids, left_words, right_words
 
 
 def random_masking(features, topk, tokenizer, ignore_tokens):
@@ -574,31 +628,24 @@ def random_masking(features, topk, tokenizer, ignore_tokens):
 
     # Get the word indices
     word_ids = features.word_ids()
-    left_words, right_words = get_left_and_right_words(word_ids)
+    left_word_ids, right_word_ids, left_words, right_words = get_left_right_words_and_ids(tokenizer, features)
 
     # Filter-out the indices associated to special words
-    # Get the raw sentence associated to the input token ids
-    sent = tokenizer.convert_tokens_to_string(tokenizer.convert_ids_to_tokens(features.data['input_ids'][0]))
-    # Get the left and right sentences
-    left_sent, right_sent = sent.split('</s></s>') if '</s></s>' in sent else sent.split('[SEP]')
-    # Clean the sentences from special tokens
-    left_sent = left_sent.replace('<s>', '').replace('[CLS]', '').replace('/', ' / ').replace('-', ' - ')
-    right_sent = right_sent.replace('</s>', '').replace('[SEP]', '').replace('/', ' / ').replace('-', ' - ')
-    # Consistency check
-    assert left_words.max() == len(left_sent.split()) - 1
-    assert right_words.max() == len(right_sent.split()) - 1
     # Get the indices of the words that have to be ignored
-    ignore_left = [ix for ix, word in enumerate(left_sent.split()) if word in ignore_tokens]
-    ignore_right = [ix for ix, word in enumerate(right_sent.split()) if word in ignore_tokens]
+    ignore_left = [ix for ix, word in enumerate(left_words) if word in ignore_tokens]
+    ignore_right = [ix for ix, word in enumerate(right_words) if word in ignore_tokens]
     # Get the remaining words
-    left_words = left_words[~np.isin(left_words, ignore_left)]
-    right_words = right_words[~np.isin(right_words, ignore_right)]
+    left_word_ids = np.unique(left_word_ids[1:-1])
+    right_word_ids = np.unique(right_word_ids[1:-1])
+    left_word_ids = left_word_ids[~np.isin(left_word_ids, ignore_left)]
+    right_word_ids = right_word_ids[~np.isin(right_word_ids, ignore_right)]
 
-    # Extract some random word positions
-    word_pairs = get_random_pair_indices(left_words, right_words, topk)
+    # Extract some random word indices to mask
+    mask_indices = get_random_pair_indices(left_word_ids, right_word_ids, topk)
 
+    # Mask the words associated to the selected indices
     input_ids = features['input_ids'].unsqueeze(0)
-    for pair in word_pairs:
+    for pair in mask_indices:
         index_mask = get_index_token_sent(pair, word_ids)
         input_ids[0][0, index_mask] = 103
 
@@ -629,9 +676,15 @@ def mask_column(entity1, entity2, columnMask):
     return sent1, sent2
 
 
-def syntax_masking(sent1, sent2, features, topk):
-    top_word_pairs_by_syntax = nlp.get_syntactically_similar_words_from_sent_pair \
-        (sent1, sent2, 5, "edit", return_idxs=True, return_sims=True, ignore_tokens=['[SEP]'])
+def syntax_masking(sent1, sent2, features, topk, ignore_tokens=None):
+
+    if ignore_tokens is None:
+        ignore_tokens = []
+    ignore_tokens += ['[SEP]']
+
+    top_word_pairs_by_syntax = nlp.get_syntactically_similar_words_from_sent_pair(
+        sent1, sent2, 5, "edit", return_idxs=True, return_sims=True, ignore_tokens=ignore_tokens
+    )
 
     if len(top_word_pairs_by_syntax) > 0:
         order = np.array(top_word_pairs_by_syntax['word_pair_sims']).argsort()
@@ -657,6 +710,7 @@ def semantic_masking(sent1, sent2, features, topk, ignore_tokens=None):
     if ignore_tokens is None:
         ignore_tokens = []
     ignore_tokens += ['[SEP]']
+
     top_word_pairs_by_semantic = nlp.get_semantically_similar_words_from_sent_pair(
         sent1, sent2, sem_emb_model, 0.7, return_idxs=True, return_sims=True, ignore_tokens=ignore_tokens
     )

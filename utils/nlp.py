@@ -334,31 +334,19 @@ def get_syntactically_similar_words_from_sent_pair(sent1, sent2, thr, metric, eq
     else:
         raise NotImplementedError()
 
+    # Remove the indices of the words that have to be ignored
+    left_ixs = [ix for ix, word in enumerate(sent1) if word not in ignore_tokens and len(word) >= 3]
+    right_ixs = [ix for ix, word in enumerate(sent2) if word not in ignore_tokens and len(word) >= 3]
+
+    all_pair_ixs = list(itertools.product(left_ixs, right_ixs))
+
     similar_words = []
-    similar_words_idxs = []
+    similar_words_ixs = []
     similar_words_sims = []
-    all_pairs = list(itertools.product(sent1, sent2))
-    all_pair_idxs = list(itertools.product(range(len(sent1)), range(len(sent2))))
-    for idx, pair in enumerate(all_pairs):
-        left_word, right_word = str(pair[0]), str(pair[1])
-
-        # remove pairs of words composed by equal words
-        # if left_word == right_word:
-        #     continue
-
-        if len(left_word) < 3 or len(right_word) < 3:
-            continue
-
-        skip = False
-        for word in ignore_tokens:
-            if word == left_word or word == right_word:
-                skip = True
-                break
-        if skip is True:
-            continue
-
-        # left_word = left_word.replace('.0', '')
-        # right_word = right_word.replace('.0', '')
+    for pair_ixs in all_pair_ixs:
+        left_ix, right_ix = pair_ixs
+        left_word = str(sent1[left_ix])
+        right_word = str(sent2[right_ix])
 
         if metric == 'edit':
             syntax_score = nltk.edit_distance(left_word, right_word)
@@ -383,12 +371,12 @@ def get_syntactically_similar_words_from_sent_pair(sent1, sent2, thr, metric, eq
 
         if syntax_cond:
             similar_words.append((left_word, right_word, syntax_score))
-            similar_words_idxs.append(all_pair_idxs[idx])
+            similar_words_ixs.append(pair_ixs)
             similar_words_sims.append(syntax_score)
 
     out_dict = {'word_pairs': similar_words}
     if return_idxs is True:
-        out_dict['word_pair_idxs'] = similar_words_idxs
+        out_dict['word_pair_idxs'] = similar_words_ixs
     if return_sims is True:
         out_dict['word_pair_sims'] = similar_words_sims
 
@@ -403,42 +391,30 @@ def get_semantically_similar_words_from_sent_pair(sent1, sent2, model, thr, retu
     assert len(sent2) > 0, "Empty sentence2 tokens."
     assert isinstance(thr, float), "Wrong data type for parameter 'thr'."
 
+    # Remove the indices of the words that have to be ignored
+    left_ixs = [ix for ix, word in enumerate(sent1) if word not in ignore_tokens and len(word) >= 3]
+    right_ixs = [ix for ix, word in enumerate(sent2) if word not in ignore_tokens and len(word) >= 3]
+
+    all_pair_ixs = list(itertools.product(left_ixs, right_ixs))
+
     similar_words = []
-    similar_words_idxs = []
+    similar_words_ixs = []
     similar_words_sims = []
-    all_pairs = list(itertools.product(sent1, sent2))
-    all_pair_idxs = list(itertools.product(range(len(sent1)), range(len(sent2))))
-    for idx, pair in enumerate(all_pairs):
-        left_word, right_word = str(pair[0]), str(pair[1])
-
-        # remove pairs of words composed by equal words
-        # if left_word == right_word:
-        #     continue
-
-        if len(left_word) < 3 or len(right_word) < 3:
-            continue
-
-        skip = False
-        for word in ignore_tokens:
-            if word == left_word or word == right_word:
-                skip = True
-                break
-        if skip is True:
-            continue
-
-        # left_word = left_word.replace('.0', '')
-        # right_word = right_word.replace('.0', '')
+    for pair_ixs in all_pair_ixs:
+        left_ix, right_ix = pair_ixs
+        left_word = str(sent1[left_ix])
+        right_word = str(sent2[right_ix])
 
         if left_word in model and right_word in model:
             sim = model.similarity(left_word, right_word)
             if sim > thr:
                 similar_words.append((left_word, right_word, sim))
-                similar_words_idxs.append(all_pair_idxs[idx])
+                similar_words_ixs.append(pair_ixs)
                 similar_words_sims.append(sim)
 
     out_dict = {'word_pairs': similar_words}
     if return_idxs is True:
-        out_dict['word_pair_idxs'] = similar_words_idxs
+        out_dict['word_pair_idxs'] = similar_words_ixs
     if return_sims is True:
         out_dict['word_pair_sims'] = similar_words_sims
 
