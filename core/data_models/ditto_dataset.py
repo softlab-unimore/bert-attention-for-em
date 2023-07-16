@@ -4,7 +4,7 @@ Code taken from https://github.com/megagonlabs/ditto/blob/master/ditto_light/dat
 import torch
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
-from utils.bert_utils import random_masking, syntax_masking, semantic_masking, get_left_right_words_and_ids
+from utils.bert_utils import cross_encoder_random_masking, cross_encoder_syntax_masking, cross_encoder_semantic_masking, get_left_right_words_and_ids
 import numpy as np
 
 # map lm name to huggingface's pre-trained model names
@@ -22,8 +22,8 @@ def get_tokenizer(lm):
 class DittoDataset(Dataset):
     """EM dataset"""
 
-    stopwords = ['COL', 'VAL', 'PERSON', 'ORG', 'LOC', 'PRODUCT', 'DATE', 'QUANTITY', 'TIME', 'Artist_Name', 'name',
-                 'Released', 'CopyRight', 'content', 'Brew_Factory_Name',
+    stopwords = ['COL', 'VAL', '[COL]', '[VAL]', 'PERSON', 'ORG', 'LOC', 'PRODUCT', 'DATE', 'QUANTITY', 'TIME',
+                 'Artist_Name', 'name', 'Released', 'CopyRight', 'content', 'Brew_Factory_Name',
                  'Time', 'type', 'Beer_Name', 'category', 'price', 'title', 'authors', 'class', 'description',
                  'Song_Name', 'venue', 'brand', 'Genre', 'year', 'manufacturer', 'Style', 'addr', 'phone',
                  'modelno', 'Price', 'ABV', 'city', 'Album_Name', 'specTableContent']
@@ -93,19 +93,19 @@ class DittoDataset(Dataset):
 
         if self.typeMask == 'random':
             # features = mask_random(features)
-            features = random_masking(
+            features = cross_encoder_random_masking(
                 features=features, topk=self.topk_mask, tokenizer=self.tokenizer, ignore_tokens=self.stopwords
             )
 
         elif self.typeMask == 'maskSyn':
             _, _, sent1, sent2 = get_left_right_words_and_ids(self.tokenizer, features)
-            features = syntax_masking(
+            features = cross_encoder_syntax_masking(
                 sent1=sent1, sent2=sent2, features=features, topk=self.topk_mask, ignore_tokens=self.stopwords
             )
 
         elif self.typeMask == 'maskSem':
             _, _, sent1, sent2 = get_left_right_words_and_ids(self.tokenizer, features)
-            features = semantic_masking(
+            features = cross_encoder_semantic_masking(
                 sent1=sent1, sent2=sent2, features=features, topk=self.topk_mask, ignore_tokens=self.stopwords,
             )
 

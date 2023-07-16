@@ -456,18 +456,18 @@ def tokenize_entity_pair(entity1: pd.Series, entity2: pd.Series, tokenizer, toke
 
         if typeMask == 'random':
             # features = mask_random(features)
-            features = random_masking(features, topk_mask)
+            features = cross_encoder_random_masking(features, topk_mask)
         elif typeMask == 'selectCol':
             print('I cant mask entire sentence')
             exit(0)
         elif typeMask == 'maskSyn':
             sent1 = sent1.split()
             sent2 = sent2.split()
-            features = syntax_masking(sent1, sent2, features, topk_mask)
+            features = cross_encoder_syntax_masking(sent1, sent2, features, topk_mask)
         elif typeMask == 'maskSem':
             sent1 = sent1.split()
             sent2 = sent2.split()
-            features = semantic_masking(sent1, sent2, features, topk_mask)
+            features = cross_encoder_semantic_masking(sent1, sent2, features, topk_mask)
 
     elif tokenize_method == 'attr':
         sent = ""
@@ -507,15 +507,15 @@ def tokenize_entity_pair(entity1: pd.Series, entity2: pd.Series, tokenizer, toke
 
         if typeMask == 'random':
             # features = mask_random(features)
-            features = random_masking(features, topk_mask)
+            features = cross_encoder_random_masking(features, topk_mask)
         elif typeMask == 'maskSyn':
             sent1 = sent1.split()
             sent2 = sent2.split()
-            features = syntax_masking(sent1, sent2, features, topk_mask)
+            features = cross_encoder_syntax_masking(sent1, sent2, features, topk_mask)
         elif typeMask == 'maskSem':
             sent1 = sent1.split()
             sent2 = sent2.split()
-            features = semantic_masking(sent1, sent2, features, topk_mask)
+            features = cross_encoder_semantic_masking(sent1, sent2, features, topk_mask)
 
     else:
         raise ValueError("Wrong tokenization method.")
@@ -605,7 +605,7 @@ def get_left_and_right_word_ids(word_ids):
     if right_words[-1] is not None:
         right_words.append(None)
 
-    return sep_ix, left_words, right_words
+    return sep_ix, np.array(left_words), np.array(right_words)
 
 
 def get_left_right_words_and_ids(tokenizer, features):
@@ -615,13 +615,13 @@ def get_left_right_words_and_ids(tokenizer, features):
     tokens = tokenizer.convert_ids_to_tokens(features.data['input_ids'][0])
     left_words = get_words_from_tokens(left_word_ids, tokens[:sep_ix])
     right_words = get_words_from_tokens(right_word_ids, tokens[sep_ix:])
-    assert len(left_words) == left_word_ids[-2] + 1
-    assert len(right_words) == right_word_ids[-2] + 1
+    assert len(left_words) == left_word_ids[left_word_ids != None].max() + 1
+    assert len(right_words) == right_word_ids[-2][right_word_ids != None].max() + 1
 
     return left_word_ids, right_word_ids, left_words, right_words
 
 
-def random_masking(features, topk, tokenizer, ignore_tokens):
+def cross_encoder_random_masking(features, topk, tokenizer, ignore_tokens):
 
     # Select some top-k random words to mask
     # Ignore the special words (e.g., special tokens and some meta-words)
@@ -635,8 +635,10 @@ def random_masking(features, topk, tokenizer, ignore_tokens):
     ignore_left = [ix for ix, word in enumerate(left_words) if word in ignore_tokens]
     ignore_right = [ix for ix, word in enumerate(right_words) if word in ignore_tokens]
     # Get the remaining words
-    left_word_ids = np.unique(left_word_ids[1:-1])
-    right_word_ids = np.unique(right_word_ids[1:-1])
+    left_word_ids = np.unique(left_word_ids[~np.isnan(left_word_ids)])
+    right_word_ids = np.unique(right_word_ids[~np.isnan(right_word_ids)])
+    assert len(left_word_ids) == len(left_words)
+    assert len(right_word_ids) == len(right_words)
     left_word_ids = left_word_ids[~np.isin(left_word_ids, ignore_left)]
     right_word_ids = right_word_ids[~np.isin(right_word_ids, ignore_right)]
 
@@ -652,6 +654,55 @@ def random_masking(features, topk, tokenizer, ignore_tokens):
     features['inputs_ids'] = input_ids
 
     return features
+
+
+def filter_word_ids(word_ids, tokens, ignore_tokens):
+    words = get_words_from_tokens(word_ids, tokens)
+    word_ids = np.array(word_ids)
+    word_ids = word_ids[word_ids != None]
+    assert len(words) == word_ids.max() + 1
+
+    # Filter-out the indices associated to special words
+    # Get the indices of the words that have to be ignored
+    ignore = [ix for ix, word in enumerate(words) if word in ignore_tokens]
+    # Get the remaining words
+    word_ids = np.unique(word_ids)
+    assert len(word_ids) == len(words)
+    word_ids = word_ids[~np.isin(word_ids, ignore)]
+
+    return word_ids
+
+
+def bi_encoder_random_masking(left_features, right_features, tokenizer, topk, ignore_tokens, index=0):
+
+    # Select some top-k random words to mask
+    # Ignore the special words (e.g., special tokens and some meta-words)
+
+    # Get the word indices
+    left_word_ids = left_features.word_ids(index)
+    left_tokens = tokenizer.convert_ids_to_tokens(left_features.data['input_ids'][index])
+    left_word_ids = filter_word_ids(left_word_ids, left_tokens, ignore_tokens)
+
+    right_word_ids = right_features.word_ids(index)
+    right_tokens = tokenizer.convert_ids_to_tokens(right_features.data['input_ids'][index])
+    right_word_ids = filter_word_ids(right_word_ids, right_tokens, ignore_tokens)
+
+    # Extract some random word indices to mask
+    mask_indices = get_random_pair_indices(left_word_ids, right_word_ids, topk)
+
+    # Mask the words associated to the selected indices
+    left_input_ids = left_features['input_ids'][index]
+    for ix in [x[0] for x in mask_indices]:
+        index_mask = np.where(np.array(left_features.word_ids(index)) == ix)[0]
+        left_input_ids[index_mask] = 103
+
+    # Mask the words associated to the selected indices
+    right_input_ids = right_features['input_ids'][index]
+    for ix in [x[1] for x in mask_indices]:
+        index_mask = np.where(np.array(right_features.word_ids(index)) == ix)[0]
+        right_input_ids[index_mask] = 103
+
+    return left_input_ids, right_input_ids
 
 
 def mask_column(entity1, entity2, columnMask):
@@ -676,7 +727,7 @@ def mask_column(entity1, entity2, columnMask):
     return sent1, sent2
 
 
-def syntax_masking(sent1, sent2, features, topk, ignore_tokens=None):
+def cross_encoder_syntax_masking(sent1, sent2, features, topk, ignore_tokens=None):
 
     if ignore_tokens is None:
         ignore_tokens = []
@@ -699,7 +750,38 @@ def syntax_masking(sent1, sent2, features, topk, ignore_tokens=None):
     return features
 
 
-def semantic_masking(sent1, sent2, features, topk, ignore_tokens=None):
+def bi_encoder_syntax_masking(sent1, sent2, left_features, right_features, topk, ignore_tokens=None, index=0):
+
+    if ignore_tokens is None:
+        ignore_tokens = []
+    ignore_tokens += ['[SEP]']
+
+    top_word_pairs_by_syntax = nlp.get_syntactically_similar_words_from_sent_pair(
+        sent1, sent2, 5, "edit", return_idxs=True, return_sims=True, ignore_tokens=ignore_tokens
+    )
+
+    if len(top_word_pairs_by_syntax) > 0:
+        order = np.array(top_word_pairs_by_syntax['word_pair_sims']).argsort()
+        top_word_pairs_by_syntax = {k: np.array(v)[order][:topk] for k, v in top_word_pairs_by_syntax.items()}
+
+        left_input_ids = left_features['input_ids'][index]
+        for ix in [x[0] for x in top_word_pairs_by_syntax['word_pair_idxs']]:
+            index_mask = np.where(np.array(left_features.word_ids(index)) == ix)[0]
+            left_input_ids[index_mask] = 103
+
+        right_input_ids = right_features['input_ids'][index]
+        for ix in [x[1] for x in top_word_pairs_by_syntax['word_pair_idxs']]:
+            index_mask = np.where(np.array(right_features.word_ids(index)) == ix)[0]
+            right_input_ids[index_mask] = 103
+
+    else:
+        left_input_ids = left_features['input_ids'][index]
+        right_input_ids = right_features['input_ids'][index]
+
+    return left_input_ids, right_input_ids
+
+
+def cross_encoder_semantic_masking(sent1, sent2, features, topk, ignore_tokens=None):
     if os.path.isfile('modelPick.pkl'):
         sem_emb_model = pickle.load(open("modelPick.pkl", "rb"))
     else:
@@ -726,6 +808,43 @@ def semantic_masking(sent1, sent2, features, topk, ignore_tokens=None):
 
         features['inputs_ids'] = input_ids
     return features
+
+
+def bi_encoder_semantic_masking(sent1, sent2, left_features, right_features, topk, ignore_tokens=None, index=0):
+    if os.path.isfile('modelPick.pkl'):
+        sem_emb_model = pickle.load(open("modelPick.pkl", "rb"))
+    else:
+        FAST_TEXT_PATH = os.path.join(os.path.abspath('../..'), 'data', 'wiki-news-300d-1M', 'wiki-news-300d-1M.vec')
+        sem_emb_model = gensim.models.KeyedVectors.load_word2vec_format(FAST_TEXT_PATH, binary=False, encoding='utf8')
+        pickle.dump(sem_emb_model, open("modelPick.pkl", "wb"))
+
+    if ignore_tokens is None:
+        ignore_tokens = []
+    ignore_tokens += ['[SEP]']
+
+    top_word_pairs_by_semantic = nlp.get_semantically_similar_words_from_sent_pair(
+        sent1, sent2, sem_emb_model, 0.7, return_idxs=True, return_sims=True, ignore_tokens=ignore_tokens
+    )
+
+    if len(top_word_pairs_by_semantic) > 0:
+        order = np.array(top_word_pairs_by_semantic['word_pair_sims']).argsort()[::-1]
+        top_word_pairs_by_semantic = {k: np.array(v)[order][:topk] for k, v in top_word_pairs_by_semantic.items()}
+
+        left_input_ids = left_features['input_ids'][index]
+        for ix in [x[0] for x in top_word_pairs_by_semantic['word_pair_idxs']]:
+            index_mask = np.where(np.array(left_features.word_ids(index)) == ix)[0]
+            left_input_ids[index_mask] = 103
+
+        right_input_ids = right_features['input_ids'][index]
+        for ix in [x[1] for x in top_word_pairs_by_semantic['word_pair_idxs']]:
+            index_mask = np.where(np.array(right_features.word_ids(index)) == ix)[0]
+            right_input_ids[index_mask] = 103
+
+    else:
+        left_input_ids = left_features['input_ids'][index]
+        right_input_ids = right_features['input_ids'][index]
+
+    return left_input_ids, right_input_ids
 
 
 def mask_syn(sent1, sent2, features, sep: str = ' '):

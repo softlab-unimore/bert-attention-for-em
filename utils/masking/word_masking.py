@@ -24,8 +24,8 @@ PROJECT_DIR = Path(__file__).parent.parent.parent
 RESULTS_DIR = os.path.join(PROJECT_DIR, 'results', 'models')
 
 
-def get_num_masked_words(input_ids, word_ids):
-    """ Count how many MASK tokens (id=103) have been inserted. """
+def get_num_masked_words_in_pair(input_ids, word_ids):
+    """ Count how many MASK tokens (id=103) have been inserted in a pair of entity descriptions. """
 
     masked = []
     for iids, wids in zip(input_ids, word_ids):
@@ -36,6 +36,21 @@ def get_num_masked_words(input_ids, word_ids):
         middle_sep_ix = sep_ixs[1]
 
         left_ids = (iids[:middle_sep_ix] == 103).nonzero()[:, 0]
+        left_words = np.unique(wids[left_ids])
+
+        masked.append(len(left_words))
+
+    return np.array(masked)
+
+
+def get_num_masked_words(input_ids, word_ids):
+    """ Count how many MASK tokens (id=103) have been inserted in an entity description. """
+
+    masked = []
+    for iids, wids in zip(input_ids, word_ids):
+        wids = np.array(wids)
+
+        left_ids = (iids == 103).nonzero()[:, 0]
         left_words = np.unique(wids[left_ids])
 
         masked.append(len(left_words))
@@ -80,8 +95,11 @@ def evaluate(tuned_model, eval_dataset: EMDataset, thr=None, collate_fn=None):
             input_ids = features['input_ids']
 
             batch_labels = features['labels'].numpy()
-            # FIXME
-            # batch_masked_tokens = get_num_masked_words(input_ids, features['word_ids'])
+
+            if 'word_ids' in features:
+                batch_masked_tokens = get_num_masked_words_in_pair(input_ids, features['word_ids'])
+            else:
+                batch_masked_tokens = get_num_masked_words(input_ids, features['word_ids_left'])
 
             if isinstance(tuned_model, DittoModel):
                 logits = tuned_model(input_ids)
@@ -115,17 +133,17 @@ def evaluate(tuned_model, eval_dataset: EMDataset, thr=None, collate_fn=None):
             if labels is None:
                 labels = batch_labels
                 preds = batch_preds
-                # masked_tokens = batch_masked_tokens
+                masked_tokens = batch_masked_tokens
             else:
                 labels = np.concatenate((labels, batch_labels))
                 preds = np.concatenate((preds, batch_preds))
-                # masked_tokens = np.concatenate((masked_tokens, batch_masked_tokens))
+                masked_tokens = np.concatenate((masked_tokens, batch_masked_tokens))
 
     out = {
         'preds': preds,
         'labels': labels,
         'masked_tokens': masked_tokens,
-        # 'masked_records': masked_tokens > 0
+        'masked_records': masked_tokens > 0
     }
 
     return out
@@ -212,7 +230,6 @@ def evaluate_supcon(use_case: str, lm: str, type_mask: str, topk_mask: int):
     test_path = supcon_collector.get_path(use_case=use_case, data_type='test')
 
     # Load the test data
-    # FIXME: add masking to the dataset
     test_dataset = ContrastiveClassificationDataset(
         test_path, dataset_type='test', tokenizer=lm, dataset=use_case
     )
@@ -228,13 +245,13 @@ def evaluate_supcon(use_case: str, lm: str, type_mask: str, topk_mask: int):
         device='cpu'
     )
 
-    data_collator = DataCollatorContrastiveClassification(tokenizer=test_dataset.tokenizer)
+    data_collator = DataCollatorContrastiveClassification(
+        tokenizer=test_dataset.tokenizer, typeMask=type_mask, topk_mask=topk_mask
+    )
     res = evaluate(tuned_model, test_dataset, collate_fn=data_collator)
 
-    from sklearn.metrics import f1_score
-    print(f1_score(res['labels'], res['preds']))
-
-    exit(1)
+    # from sklearn.metrics import f1_score
+    # print(f1_score(res['labels'], res['preds']))
 
     return res
 
@@ -280,7 +297,7 @@ if __name__ == '__main__':
 
     for use_case in use_cases:
         for token in ['sent_pair']:  # 'attr_pair', 'sent_pair'
-            for modeMask in [None, 'random', 'maskSem', 'maskSyn']:  # 'off', 'random', 'maskSem', 'maskSyn'
+            for modeMask in ['maskSyn']:  # 'off', 'random', 'maskSem', 'maskSyn'
                 for topk_mask in [3]:  # None, 3
                     if modeMask == 'selectCol' and token == 'sent_pair':
                         continue
