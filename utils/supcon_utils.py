@@ -9,11 +9,12 @@ import random
 
 random.seed(42)
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import Optional, Any
 import torch
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from utils.bert_utils import bi_encoder_random_masking, bi_encoder_syntax_masking, bi_encoder_semantic_masking, \
     get_words_from_tokens
+from utils.nlp import FastTextModel
 
 
 @dataclass
@@ -24,6 +25,7 @@ class DataCollatorContrastiveClassification:
     return_tensors: str = "pt"
     typeMask: Optional[str] = None
     topk_mask: Optional[int] = None
+    sem_emb_model: Optional[Any] = None
 
     stopwords = ['COL', 'VAL', '[COL]', '[VAL]', 'PERSON', 'ORG', 'LOC', 'PRODUCT', 'DATE', 'QUANTITY', 'TIME',
                  'Artist_Name', 'name', 'Released', 'CopyRight', 'content', 'Brew_Factory_Name', 'Time', 'type',
@@ -71,6 +73,7 @@ class DataCollatorContrastiveClassification:
             batch_right['input_ids'] = torch.cat([x[1].unsqueeze(0) for x in features])
 
         elif self.typeMask == 'maskSem':
+            assert self.sem_emb_model is not None
             sent1_list = []
             sent2_list = []
             for i in range(len(batch_left['input_ids'])):
@@ -85,7 +88,8 @@ class DataCollatorContrastiveClassification:
 
             features = [bi_encoder_semantic_masking(
                 sent1=sent1_list[i], sent2=sent2_list[i], left_features=batch_left,
-                right_features=batch_right, topk=self.topk_mask, ignore_tokens=self.stopwords, index=i
+                right_features=batch_right, topk=self.topk_mask, sem_emb_model=self.sem_emb_model,
+                ignore_tokens=self.stopwords, index=i
             ) for i in range(len(batch_left['input_ids']))]
             batch_left['input_ids'] = torch.cat([x[0].unsqueeze(0) for x in features])
             batch_right['input_ids'] = torch.cat([x[1].unsqueeze(0) for x in features])

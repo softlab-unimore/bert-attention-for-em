@@ -5,7 +5,9 @@ import numpy as np
 from nltk.corpus import wordnet, stopwords
 import random
 import logging
+import pickle
 import string
+import gensim
 import itertools
 import pandas as pd
 from nltk import ngrams
@@ -473,3 +475,42 @@ def get_similar_word_pairs(pair_of_entities, sim_type, metric, thrs, op_eq, sem_
                 word_pairs_map[thr]['num_all_pairs'] += len(left_sent) * len(right_sent)
 
     return word_pairs_map
+
+
+class FastTextModel:
+    def __init__(self):
+        data_dir = os.path.join(os.path.abspath('../..'), 'data')
+        model_path = os.path.join(data_dir, 'wiki-news-300d-1M', 'wiki-news-300d-1M.vec')
+        self.model_cache_path = os.path.join(data_dir, "fast_text_model_with_cache.pkl")
+        self.cache = {}
+
+        if os.path.isfile(self.model_cache_path):
+            model_with_cache = self.load_model_with_cache()
+            self.model = model_with_cache['model']
+            self.cache = model_with_cache['cache']
+        else:
+            self.model = gensim.models.KeyedVectors.load_word2vec_format(model_path, binary=False, encoding='utf8')
+            self.save_model_with_cache()
+
+    def __contains__(self, key):
+        return key in self.model
+
+    def load_model_with_cache(self):
+        return pickle.load(open(self.model_cache_path, "rb"))
+
+    def save_model_with_cache(self):
+        model_with_cache = {
+            'model': self.model,
+            'cache': self.cache
+        }
+        pickle.dump(model_with_cache, open(self.model_cache_path, "wb"))
+
+    def similarity(self, w1, w2):
+        key = tuple(sorted((w1, w2)))
+        if key in self.cache:
+            return self.cache[key]
+        sim = self.model.similarity(w1, w2)
+        self.cache[key] = sim
+        return sim
+
+

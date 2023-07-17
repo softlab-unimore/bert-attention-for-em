@@ -616,7 +616,7 @@ def get_left_right_words_and_ids(tokenizer, features):
     left_words = get_words_from_tokens(left_word_ids, tokens[:sep_ix])
     right_words = get_words_from_tokens(right_word_ids, tokens[sep_ix:])
     assert len(left_words) == left_word_ids[left_word_ids != None].max() + 1
-    assert len(right_words) == right_word_ids[-2][right_word_ids != None].max() + 1
+    assert len(right_words) == right_word_ids[right_word_ids != None].max() + 1
 
     return left_word_ids, right_word_ids, left_words, right_words
 
@@ -635,8 +635,8 @@ def cross_encoder_random_masking(features, topk, tokenizer, ignore_tokens):
     ignore_left = [ix for ix, word in enumerate(left_words) if word in ignore_tokens]
     ignore_right = [ix for ix, word in enumerate(right_words) if word in ignore_tokens]
     # Get the remaining words
-    left_word_ids = np.unique(left_word_ids[~np.isnan(left_word_ids)])
-    right_word_ids = np.unique(right_word_ids[~np.isnan(right_word_ids)])
+    left_word_ids = np.unique(left_word_ids[left_word_ids != None])
+    right_word_ids = np.unique(right_word_ids[right_word_ids != None])
     assert len(left_word_ids) == len(left_words)
     assert len(right_word_ids) == len(right_words)
     left_word_ids = left_word_ids[~np.isin(left_word_ids, ignore_left)]
@@ -646,10 +646,10 @@ def cross_encoder_random_masking(features, topk, tokenizer, ignore_tokens):
     mask_indices = get_random_pair_indices(left_word_ids, right_word_ids, topk)
 
     # Mask the words associated to the selected indices
-    input_ids = features['input_ids'].unsqueeze(0)
+    input_ids = features['input_ids']
     for pair in mask_indices:
         index_mask = get_index_token_sent(pair, word_ids)
-        input_ids[0][0, index_mask] = 103
+        input_ids[0, index_mask] = 103
 
     features['inputs_ids'] = input_ids
 
@@ -741,10 +741,10 @@ def cross_encoder_syntax_masking(sent1, sent2, features, topk, ignore_tokens=Non
         order = np.array(top_word_pairs_by_syntax['word_pair_sims']).argsort()
         top_word_pairs_by_syntax = {k: np.array(v)[order][:topk] for k, v in top_word_pairs_by_syntax.items()}
 
-        input_ids = features['input_ids'].unsqueeze(0)
+        input_ids = features['input_ids']
         for couple in top_word_pairs_by_syntax['word_pair_idxs']:
             index_mask = get_index_token_sent(couple, features.word_ids())
-            input_ids[0][0, index_mask] = 103
+            input_ids[0, index_mask] = 103
 
         features['inputs_ids'] = input_ids
     return features
@@ -781,13 +781,7 @@ def bi_encoder_syntax_masking(sent1, sent2, left_features, right_features, topk,
     return left_input_ids, right_input_ids
 
 
-def cross_encoder_semantic_masking(sent1, sent2, features, topk, ignore_tokens=None):
-    if os.path.isfile('modelPick.pkl'):
-        sem_emb_model = pickle.load(open("modelPick.pkl", "rb"))
-    else:
-        FAST_TEXT_PATH = os.path.join(os.path.abspath('../..'), 'data', 'wiki-news-300d-1M', 'wiki-news-300d-1M.vec')
-        sem_emb_model = gensim.models.KeyedVectors.load_word2vec_format(FAST_TEXT_PATH, binary=False, encoding='utf8')
-        pickle.dump(sem_emb_model, open("modelPick.pkl", "wb"))
+def cross_encoder_semantic_masking(sent1, sent2, features, topk, sem_emb_model, ignore_tokens=None):
 
     if ignore_tokens is None:
         ignore_tokens = []
@@ -801,23 +795,17 @@ def cross_encoder_semantic_masking(sent1, sent2, features, topk, ignore_tokens=N
         order = np.array(top_word_pairs_by_semantic['word_pair_sims']).argsort()[::-1]
         top_word_pairs_by_semantic = {k: np.array(v)[order][:topk] for k, v in top_word_pairs_by_semantic.items()}
 
-        input_ids = features['input_ids'].unsqueeze(0)
+        input_ids = features['input_ids']
         for couple in top_word_pairs_by_semantic['word_pair_idxs']:
             index_mask = get_index_token_sent(couple, features.word_ids())
-            input_ids[0][0, index_mask] = 103
+            input_ids[0, index_mask] = 103
 
         features['inputs_ids'] = input_ids
     return features
 
 
-def bi_encoder_semantic_masking(sent1, sent2, left_features, right_features, topk, ignore_tokens=None, index=0):
-    if os.path.isfile('modelPick.pkl'):
-        sem_emb_model = pickle.load(open("modelPick.pkl", "rb"))
-    else:
-        FAST_TEXT_PATH = os.path.join(os.path.abspath('../..'), 'data', 'wiki-news-300d-1M', 'wiki-news-300d-1M.vec')
-        sem_emb_model = gensim.models.KeyedVectors.load_word2vec_format(FAST_TEXT_PATH, binary=False, encoding='utf8')
-        pickle.dump(sem_emb_model, open("modelPick.pkl", "wb"))
-
+def bi_encoder_semantic_masking(sent1, sent2, left_features, right_features, topk, sem_emb_model, ignore_tokens=None,
+                                index=0):
     if ignore_tokens is None:
         ignore_tokens = []
     ignore_tokens += ['[SEP]']

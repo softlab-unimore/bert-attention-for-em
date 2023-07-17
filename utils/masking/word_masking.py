@@ -19,6 +19,8 @@ from utils.ditto_utils import tune_threshold, predict
 from core.modeling.supcon import ContrastiveClassifierModel
 from torch.utils.data import DataLoader
 from utils.supcon_utils import DataCollatorContrastiveClassification
+from utils.nlp import FastTextModel
+from sklearn.metrics import f1_score
 
 PROJECT_DIR = Path(__file__).parent.parent.parent
 RESULTS_DIR = os.path.join(PROJECT_DIR, 'results', 'models')
@@ -193,11 +195,20 @@ def evaluate_ditto(use_case: str, lm: str, type_mask: str, topk_mask: int, max_l
     valid_path = injector.transform_file(valid_path)
     test_path = injector.transform_file(test_path)
 
+    if type_mask == 'maskSem':
+        print("Loading the FastText model!")
+        sem_emb_model = FastTextModel()
+        print("Loading completed!")
+    else:
+        sem_emb_model = None
+
     valid_dataset = DittoDataset(
-        path=valid_path, lm=lm, typeMask=type_mask, topk_mask=topk_mask, max_len=max_len, verbose=False
+        path=valid_path, lm=lm, typeMask=type_mask, topk_mask=topk_mask,
+        max_len=max_len, verbose=False, sem_emb_model=sem_emb_model
     )
     test_dataset = DittoDataset(
-        path=test_path, lm=lm, typeMask=type_mask, topk_mask=topk_mask, max_len=max_len, verbose=True
+        path=test_path, lm=lm, typeMask=type_mask, topk_mask=topk_mask,
+        max_len=max_len, verbose=True, sem_emb_model=sem_emb_model
     )
 
     model_path = os.path.join(RESULTS_DIR, "ditto", f"{use_case}.pt")
@@ -208,13 +219,15 @@ def evaluate_ditto(use_case: str, lm: str, type_mask: str, topk_mask: int, max_l
 
     res = evaluate(tuned_model, test_dataset, thr=threshold, collate_fn=test_dataset.pad)
 
-    # from sklearn.metrics import f1_score
-    # print(f1_score(res['labels'], res['preds']))
+    print(f1_score(res['labels'], res['preds']))
+
+    if sem_emb_model is not None:
+        sem_emb_model.save_model_with_cache()
 
     return res
 
 
-def evaluate_supcon(use_case: str, lm: str, type_mask: str, topk_mask: int):
+def evaluate_supcon(use_case: str, lm: str, type_mask: str, topk_mask: int, max_len: int):
     def get_posneg():
         if lm == ['Structured_Walmart-Amazon', 'Dirty_Walmart-Amazon']:
             return 10
@@ -245,13 +258,23 @@ def evaluate_supcon(use_case: str, lm: str, type_mask: str, topk_mask: int):
         device='cpu'
     )
 
+    if type_mask == 'maskSem':
+        print("Loading the FastText model!")
+        sem_emb_model = FastTextModel()
+        print("Loading completed!")
+    else:
+        sem_emb_model = None
+
     data_collator = DataCollatorContrastiveClassification(
-        tokenizer=test_dataset.tokenizer, typeMask=type_mask, topk_mask=topk_mask
+        tokenizer=test_dataset.tokenizer, typeMask=type_mask, topk_mask=topk_mask,
+        max_length=max_len, sem_emb_model=sem_emb_model
     )
     res = evaluate(tuned_model, test_dataset, collate_fn=data_collator)
 
-    # from sklearn.metrics import f1_score
-    # print(f1_score(res['labels'], res['preds']))
+    print(f1_score(res['labels'], res['preds']))
+
+    if sem_emb_model is not None:
+        sem_emb_model.save_model_with_cache()
 
     return res
 
@@ -297,7 +320,7 @@ if __name__ == '__main__':
 
     for use_case in use_cases:
         for token in ['sent_pair']:  # 'attr_pair', 'sent_pair'
-            for modeMask in ['maskSyn']:  # 'off', 'random', 'maskSem', 'maskSyn'
+            for modeMask in ['maskSem', 'maskSyn']:  # 'off', 'random', 'maskSem', 'maskSyn'
                 for topk_mask in [3]:  # None, 3
                     if modeMask == 'selectCol' and token == 'sent_pair':
                         continue
@@ -312,7 +335,8 @@ if __name__ == '__main__':
 
                     elif args.approach == 'supcon':
                         res = evaluate_supcon(
-                            use_case=use_case, lm=args.bert_model, type_mask=modeMask, topk_mask=topk_mask
+                            use_case=use_case, lm=args.bert_model, type_mask=modeMask, topk_mask=topk_mask,
+                            max_len=args.max_len
                         )
 
                     else:

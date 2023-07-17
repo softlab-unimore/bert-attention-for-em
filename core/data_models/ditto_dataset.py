@@ -4,7 +4,9 @@ Code taken from https://github.com/megagonlabs/ditto/blob/master/ditto_light/dat
 import torch
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
-from utils.bert_utils import cross_encoder_random_masking, cross_encoder_syntax_masking, cross_encoder_semantic_masking, get_left_right_words_and_ids
+from utils.bert_utils import cross_encoder_random_masking, cross_encoder_syntax_masking, \
+    cross_encoder_semantic_masking, get_left_right_words_and_ids
+from utils.nlp import FastTextModel
 import numpy as np
 
 # map lm name to huggingface's pre-trained model names
@@ -36,7 +38,8 @@ class DittoDataset(Dataset):
                  da=None,
                  typeMask: str = None,
                  topk_mask: int = None,
-                 verbose: bool = False):
+                 verbose: bool = False,
+                 sem_emb_model=None):
         self.tokenizer = get_tokenizer(lm)
         self.pairs = []
         self.labels = []
@@ -58,6 +61,7 @@ class DittoDataset(Dataset):
         self.typeMask = typeMask
         self.topk_mask = topk_mask
         self.verbose = verbose
+        self.sem_emb_model = sem_emb_model
 
     def __len__(self):
         """Return the size of the dataset."""
@@ -104,9 +108,11 @@ class DittoDataset(Dataset):
             )
 
         elif self.typeMask == 'maskSem':
+            assert self.sem_emb_model is not None
             _, _, sent1, sent2 = get_left_right_words_and_ids(self.tokenizer, features)
             features = cross_encoder_semantic_masking(
-                sent1=sent1, sent2=sent2, features=features, topk=self.topk_mask, ignore_tokens=self.stopwords,
+                sent1=sent1, sent2=sent2, features=features, topk=self.topk_mask, sem_emb_model=self.sem_emb_model,
+                ignore_tokens=self.stopwords,
             )
 
         elif self.typeMask is None:
