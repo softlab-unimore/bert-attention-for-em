@@ -123,7 +123,7 @@ def evaluate(tuned_model, eval_dataset: EMDataset, thr=None, collate_fn=None):
                 logits = outputs[1]
                 logits[logits >= 0.5] = 1
                 logits[logits < 0.5] = 0
-                batch_preds = logits
+                batch_preds = logits.numpy().flatten()
 
             else:
                 token_type_ids = features['token_type_ids']
@@ -321,6 +321,8 @@ if __name__ == '__main__':
                         help='the EM approach to use')
     parser.add_argument('-seed', '--seed', default=42, type=int,
                         help='seed')
+    parser.add_argument('-out_dir', '--output_dir', type=str,
+                        help='the directory where to store the results', required=True)
 
     args = parser.parse_args()
 
@@ -330,7 +332,7 @@ if __name__ == '__main__':
 
     for use_case in use_cases:
         for token in ['sent_pair']:  # 'attr_pair', 'sent_pair'
-            for modeMask in ['maskSem', 'maskSyn']:  # 'off', 'random', 'maskSem', 'maskSyn'
+            for modeMask in ['off', 'random', 'maskSem', 'maskSyn']:  # 'off', 'random', 'maskSem', 'maskSyn'
                 for topk_mask in [3]:  # None, 3
                     if modeMask == 'selectCol' and token == 'sent_pair':
                         continue
@@ -357,12 +359,14 @@ if __name__ == '__main__':
                     # Save the results
                     res.update({'data': use_case, 'tok': token, 'mask': modeMask, 'topk_mask': topk_mask})
                     if args.approach == 'bert':
-                        out_res_name = os.path.join(f"INFERENCE_{use_case}_{token}_{modeMask}_{topk_mask}")
+                        out_res_name = f"INFERENCE_{use_case}_{token}_{modeMask}_{topk_mask}.pickle"
                     elif args.approach == 'sbert':
-                        out_res_name = os.path.join(f"INFERENCE_SBERT_{use_case}_{token}_{modeMask}_{topk_mask}")
+                        out_res_name = f"INFERENCE_SBERT_{use_case}_{token}_{modeMask}_{topk_mask}.pickle"
                     elif args.approach == 'ditto':
-                        out_res_name = os.path.join(f"INFERENCE_DITTO_{use_case}_{token}_{modeMask}_{topk_mask}")
+                        out_res_name = f"INFERENCE_DITTO_{use_case}_{token}_{modeMask}_{topk_mask}.pickle"
+                    elif args.approach == 'supcon':
+                        out_res_name = f"INFERENCE_SUPCON_{use_case}_{token}_{modeMask}_{topk_mask}.pickle"
                     else:
                         raise ValueError("Wrong approach name!")
-                    with open(f'{out_res_name}.pickle', 'wb') as handle:
+                    with open(os.path.join(args.output_dir, out_res_name), 'wb') as handle:
                         pickle.dump(res, handle, protocol=pickle.HIGHEST_PROTOCOL)

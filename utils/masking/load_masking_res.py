@@ -1,6 +1,12 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from pathlib import Path
+import os
+
+
+PROJECT_DIR = Path(__file__).parent.parent.parent
+RESULTS_DIR = os.path.join(PROJECT_DIR, 'results', 'masking')
 
 
 def save_sent_sim_pair_plot(data):
@@ -74,7 +80,8 @@ def save_masking_plot(data, key):
 
 
 def plot_masking_res():
-    res_path = 'C:\\Users\\matte\\Downloads\\MeltRes3.csv'
+    # res_path = 'C:\\Users\\matte\\Downloads\\MeltRes3.csv'
+    res_path = os.path.join(RESULTS_DIR, 'report.csv')
     df = pd.read_csv(res_path)
 
     # save_masking_pair_plot(df)

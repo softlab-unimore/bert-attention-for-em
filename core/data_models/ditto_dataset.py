@@ -115,7 +115,7 @@ class DittoDataset(Dataset):
                 ignore_tokens=self.stopwords,
             )
 
-        elif self.typeMask is None:
+        elif self.typeMask is None or self.typeMask == 'off':
             pass
 
         else:

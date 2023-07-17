@@ -94,7 +94,7 @@ class DataCollatorContrastiveClassification:
             batch_left['input_ids'] = torch.cat([x[0].unsqueeze(0) for x in features])
             batch_right['input_ids'] = torch.cat([x[1].unsqueeze(0) for x in features])
 
-        elif self.typeMask is None:
+        elif self.typeMask is None or self.typeMask == 'off':
             pass
 
         else:
