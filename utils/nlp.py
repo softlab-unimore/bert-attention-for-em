@@ -318,7 +318,6 @@ def get_most_similar_words_from_sent_pair(sent1: list, sent2: list, topk: int):
 #
 #     return out_dict
 
-# FIXME: new part
 def get_syntactically_similar_words_from_sent_pair(sent1, sent2, thr, metric, eq=False, return_idxs=False,
                                                    return_sims=False, ignore_tokens = None):
 

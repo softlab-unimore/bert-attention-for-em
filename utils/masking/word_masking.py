@@ -167,6 +167,14 @@ def evaluate_simple_bert_model(args, use_case: str, token: str, mask_type, topk_
         'topk_mask': topk_mask
     }
 
+    if mask_type == 'maskSem':
+        print("Loading the FastText model!")
+        sem_emb_model = FastTextModel()
+        print("Loading completed!")
+    else:
+        sem_emb_model = None
+    conf['sem_emb_model'] = sem_emb_model
+
     test_conf = conf.copy()
     test_conf['data_type'] = 'test'
     test_dataset = get_dataset(test_conf)
@@ -180,7 +188,9 @@ def evaluate_simple_bert_model(args, use_case: str, token: str, mask_type, topk_
 
     tuned_model = AutoModelForSequenceClassification.from_pretrained(model_path)
 
-    res = evaluate(tuned_model, test_dataset)
+    res = evaluate(tuned_model, test_dataset, collate_fn=test_dataset.pad)
+
+    print(f1_score(res['labels'], res['preds']))
 
     return res
 

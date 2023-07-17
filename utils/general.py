@@ -56,6 +56,7 @@ def get_dataset(conf: dict):
     if 'return_offset' in conf:
         return_offset = conf['return_offset']
     bench = conf.get('bench')
+    sem_emb_model = conf.get('sem_emb_model')
 
     if bench is None:
         use_case_data_dir = get_use_case(use_case)
@@ -72,9 +73,7 @@ def get_dataset(conf: dict):
     data = pd.read_csv(dataset_path)
     dataset = EMDataset(data, model_name, tokenization=tok, label_col=label_col, left_prefix=left_prefix,
                         right_prefix=right_prefix, max_len=max_len, verbose=verbose, permute=permute, typeMask=typeMask,
-                        columnMask=columnMask, return_offset=return_offset)
-
-    a = dataset[0]
+                        columnMask=columnMask, return_offset=return_offset, sem_emb_model=sem_emb_model)
 
     return dataset
 

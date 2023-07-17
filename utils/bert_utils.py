@@ -433,9 +433,9 @@ def get_entity_pair_attr_idxs(left_entity: pd.Series, right_entity: pd.Series, t
 #     return listTokenMask
 
 
-# FIXME: new part
 def tokenize_entity_pair(entity1: pd.Series, entity2: pd.Series, tokenizer, tokenize_method: str, max_len: int,
-                         return_offset: bool = False, typeMask: str = 'off', columnMask: str = '', topk_mask: int = 5):
+                         return_offset: bool = False, typeMask: str = 'off', columnMask: str = '', topk_mask: int = 5,
+                         sem_emb_model=None):
 
     assert isinstance(entity1, pd.Series), "Wrong data type for param 'entity1'."
     assert isinstance(entity2, pd.Series), "Wrong data type for param 'entity2'."
@@ -456,18 +456,25 @@ def tokenize_entity_pair(entity1: pd.Series, entity2: pd.Series, tokenizer, toke
 
         if typeMask == 'random':
             # features = mask_random(features)
-            features = cross_encoder_random_masking(features, topk_mask)
+            features = cross_encoder_random_masking(
+                features=features, topk=topk_mask, tokenizer=tokenizer, ignore_tokens=['[SEP]']
+            )
         elif typeMask == 'selectCol':
             print('I cant mask entire sentence')
             exit(0)
         elif typeMask == 'maskSyn':
-            sent1 = sent1.split()
-            sent2 = sent2.split()
+            # sent1 = sent1.split()
+            # sent2 = sent2.split()
+            _, _, sent1, sent2 = get_left_right_words_and_ids(tokenizer, features)
             features = cross_encoder_syntax_masking(sent1, sent2, features, topk_mask)
         elif typeMask == 'maskSem':
-            sent1 = sent1.split()
-            sent2 = sent2.split()
-            features = cross_encoder_semantic_masking(sent1, sent2, features, topk_mask)
+            # sent1 = sent1.split()
+            # sent2 = sent2.split()
+            _, _, sent1, sent2 = get_left_right_words_and_ids(tokenizer, features)
+            assert sem_emb_model is not None, "Semantic embedding model not provided!"
+            features = cross_encoder_semantic_masking(
+                sent1=sent1, sent2=sent2, features=features, topk=topk_mask, sem_emb_model=sem_emb_model
+            )
 
     elif tokenize_method == 'attr':
         sent = ""
@@ -507,15 +514,22 @@ def tokenize_entity_pair(entity1: pd.Series, entity2: pd.Series, tokenizer, toke
 
         if typeMask == 'random':
             # features = mask_random(features)
-            features = cross_encoder_random_masking(features, topk_mask)
+            features = cross_encoder_random_masking(
+                features=features, topk=topk_mask, tokenizer=tokenizer, ignore_tokens=['[SEP]']
+            )
         elif typeMask == 'maskSyn':
-            sent1 = sent1.split()
-            sent2 = sent2.split()
+            # sent1 = sent1.split()
+            # sent2 = sent2.split()
+            _, _, sent1, sent2 = get_left_right_words_and_ids(tokenizer, features)
             features = cross_encoder_syntax_masking(sent1, sent2, features, topk_mask)
         elif typeMask == 'maskSem':
-            sent1 = sent1.split()
-            sent2 = sent2.split()
-            features = cross_encoder_semantic_masking(sent1, sent2, features, topk_mask)
+            # sent1 = sent1.split()
+            # sent2 = sent2.split()
+            _, _, sent1, sent2 = get_left_right_words_and_ids(tokenizer, features)
+            assert sem_emb_model is not None, "Semantic embedding model not provided!"
+            features = cross_encoder_semantic_masking(
+                sent1=sent1, sent2=sent2, features=features, topk=topk_mask, sem_emb_model=sem_emb_model
+            )
 
     else:
         raise ValueError("Wrong tokenization method.")

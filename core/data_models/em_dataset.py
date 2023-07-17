@@ -14,7 +14,7 @@ class EMDataset(Dataset):
                  right_prefix: str = 'right_', max_len: int = 256,
                  verbose: bool = False, categories: list = None,
                  permute: bool = False, seed: int = 42, typeMask: str = 'off', columnMask: str = '',
-                 return_offset: bool = False):
+                 return_offset: bool = False, sem_emb_model=None):
 
         assert isinstance(tokenization, str)
         assert tokenization in ['sent_pair', 'attr', 'attr_pair']
@@ -34,6 +34,7 @@ class EMDataset(Dataset):
         self.return_offset = return_offset
         self.typeMask = typeMask
         self.columnMask = columnMask
+        self.sem_emb_model = sem_emb_model
 
         if label_col not in self.data.columns:
             raise ValueError("Label column not found.")
@@ -142,7 +143,7 @@ class EMDataset(Dataset):
 
         tokenized_row = tokenize_entity_pair(left_row, right_row, self.tokenizer, self.tokenization, self.max_len,
                                              return_offset=self.return_offset, typeMask=self.typeMask,
-                                             columnMask=self.columnMask)
+                                             columnMask=self.columnMask, sem_emb_model=self.sem_emb_model)
         tokenized_row['labels'] = torch.tensor(label, dtype=torch.long)
         if self.categories is not None:
             tokenized_row['category'] = category
@@ -151,3 +152,31 @@ class EMDataset(Dataset):
             return tokenized_row
 
         return left_row, right_row, tokenized_row
+
+    @staticmethod
+    def pad(batch):
+        maxlen = max([len(x['input_ids']) for x in batch])
+        input_ids = [torch.cat((x['input_ids'], torch.zeros(maxlen - len(x['input_ids'])))).unsqueeze(0) for x in
+                     batch]
+        attention_mask = [
+            torch.cat((x['attention_mask'], torch.ones(maxlen - len(x['attention_mask'])))).unsqueeze(0) for x in
+            batch]
+        token_type_ids = [
+            torch.cat((x['token_type_ids'], torch.zeros(maxlen - len(x['token_type_ids'])))).unsqueeze(0) for x in
+            batch]
+
+        out = {
+            'input_ids': torch.cat(input_ids).to(dtype=torch.long),
+            'attention_mask': torch.cat(attention_mask).to(dtype=torch.long),
+            'token_type_ids': torch.cat(token_type_ids).to(dtype=torch.long),
+            'labels': torch.cat([x['labels'].unsqueeze(0) for x in batch]).to(dtype=torch.long)
+        }
+
+        if 'sent1' in batch[0]:
+            out['sent1'] = np.array([x['sent1'] for x in batch])
+        if 'sent2' in batch[0]:
+            out['sent2'] = np.array([x['sent2'] for x in batch])
+        if 'word_ids' in batch[0]:
+            out['word_ids'] = np.array([x['word_ids'] for x in batch])
+
+        return out
