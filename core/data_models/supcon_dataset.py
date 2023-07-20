@@ -105,6 +105,12 @@ class Augmenter:
 
 
 class ContrastiveClassificationDataset(torch.utils.data.Dataset):
+    stopwords = ['COL', 'VAL', '[COL]', '[VAL]', 'PERSON', 'ORG', 'LOC', 'PRODUCT', 'DATE', 'QUANTITY', 'TIME',
+                 'Artist_Name', 'name', 'Released', 'CopyRight', 'content', 'Brew_Factory_Name', 'Time', 'type',
+                 'Beer_Name', 'category', 'price', 'title', 'authors', 'class', 'description',
+                 'Song_Name', 'venue', 'brand', 'Genre', 'year', 'manufacturer', 'Style', 'addr', 'phone',
+                 'modelno', 'Price', 'ABV', 'city', 'Album_Name', 'specTableContent']
+
     def __init__(self, path, dataset_type, size=None, tokenizer='huawei-noah/TinyBERT_General_4L_312D', max_length=128,
                  dataset='lspc', aug=False):
 

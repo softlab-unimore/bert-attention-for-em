@@ -296,7 +296,7 @@ if __name__ == '__main__':
     # General parameters
     parser.add_argument('-use_cases', '--use_cases', nargs='+', required=True, choices=DM_USE_CASES + ['all'],
                         help='the names of the datasets')
-    parser.add_argument('-bert_model', '--bert_model', default='bert-base-uncased', type=str,
+    parser.add_argument('-bert_model', '--bert_model', default='bert-base-uncased', type=str, required=True,
                         help='the version of the BERT model')
     parser.add_argument('-tok', '--tok', default='sent_pair', type=str, choices=['sent_pair', 'attr_pair'],
                         help='the tokenizer for the EM entries')
@@ -316,7 +316,7 @@ if __name__ == '__main__':
                         help='boolean flag for permuting dataset attributes')
     parser.add_argument('-v', '--verbose', default=False, type=lambda x: bool(distutils.util.strtobool(x)),
                         help='boolean flag for the dataset verbose modality')
-    parser.add_argument('-approach', '--approach', type=str, default='bert',
+    parser.add_argument('-approach', '--approach', type=str, default='bert', required=True,
                         choices=['bert', 'sbert', 'ditto', 'supcon'],
                         help='the EM approach to use')
     parser.add_argument('-seed', '--seed', default=42, type=int,
@@ -332,7 +332,7 @@ if __name__ == '__main__':
 
     for use_case in use_cases:
         for token in ['sent_pair']:  # 'attr_pair', 'sent_pair'
-            for modeMask in ['off', 'random', 'maskSem', 'maskSyn']:  # 'off', 'random', 'maskSem', 'maskSyn'
+            for modeMask in ['maskSyn']:  # 'off', 'random', 'maskSem', 'maskSyn'
                 for topk_mask in [3]:  # None, 3
                     if modeMask == 'selectCol' and token == 'sent_pair':
                         continue

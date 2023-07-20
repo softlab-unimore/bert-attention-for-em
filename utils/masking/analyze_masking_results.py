@@ -198,4 +198,6 @@ if __name__ == '__main__':
     out_perf = perf[perf['masking'] == 'off'].copy()
     out_perf = pd.concat((out_perf, perf[perf['masking'] != 'off'].copy()))
 
+    save_masking_plot(out_perf, 'sent_pair')
+
     perf.to_csv(os.path.join(RESULTS_DIR, 'report.csv'))

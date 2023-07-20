@@ -120,3 +120,4 @@ class ContrastiveClassifierModel(nn.Module):
         proj_output = torch.sigmoid(proj_output)
 
         return (loss, proj_output)
+
