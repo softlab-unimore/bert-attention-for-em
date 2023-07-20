@@ -7,14 +7,14 @@ from torch.utils.data import DataLoader
 from sklearn.metrics.pairwise import cosine_similarity
 from scipy.stats.stats import pearsonr
 import pickle
+from pathlib import Path
+import argparse
 
 from core.data_models.em_dataset import EMDataset
 from core.data_models.ditto_dataset import DittoDataset
 from core.data_models.supcon_dataset import ContrastiveClassificationDataset
 from utils.general import get_dataset
 from utils.data_collector import DM_USE_CASES, DataCollectorDitto, DataCollectorSupCon
-from pathlib import Path
-import argparse
 from utils.knowledge import GeneralDKInjector
 from core.modeling.ditto import DittoModel
 from core.modeling.supcon import ContrastiveClassifierModel
@@ -54,8 +54,8 @@ def get_left_right_sent_embeddings(embeddings, end_left, start_right, end_right)
 
 def get_sentence_correlation(tuned_model, eval_dataset: (EMDataset, DittoDataset, ContrastiveClassificationDataset),
                              collate_fn=None):
-
-    tuned_model.to('cpu')
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    tuned_model.to(device)
     tuned_model.eval()
 
     loader = DataLoader(eval_dataset, batch_size=32, num_workers=4, shuffle=False, collate_fn=collate_fn)
@@ -173,7 +173,8 @@ def load_ditto_model(path, lm='roberta'):
     if not os.path.exists(path):
         raise ValueError(f"Model not found: {path}!")
 
-    model = DittoModel(device='cpu', lm=lm)
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    model = DittoModel(device=device, lm=lm)
 
     saved_state = torch.load(path, map_location=lambda storage, loc: storage)
     model.load_state_dict(saved_state['model'])
@@ -224,6 +225,7 @@ def supcon_sentence_similarity(use_case, lm, max_len):
     )
 
     # Load the model
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model_path = os.path.join(RESULTS_DIR, "supcon", f"{use_case}.bin")
     tuned_model = ContrastiveClassifierModel(
         checkpoint_path=model_path,
@@ -231,7 +233,7 @@ def supcon_sentence_similarity(use_case, lm, max_len):
         model=lm,
         frozen=True,
         pos_neg=get_posneg(),
-        device='cpu'
+        device=device
     )
 
     data_collator = DataCollatorContrastiveClassification(
