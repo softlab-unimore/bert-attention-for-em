@@ -248,17 +248,27 @@ The experiment evaluates the impact  of the fine-tuning process on the BERT and 
 
 ### Experiment Sec. 7.3.1 (Fig. 14)
 
-Masking token by adopting BERT and SBERT Model. The `--typeMask` can assume value  `off`,`random`,`maskSyn`, or `maskSem`. Default value is `off`.
+Masking the tokens of BERT, SBERT, Ditto and SupCon models with multiple criteria (e.g, `random`, `maskSyn`, or `maskSem`).
 
 ```python
-  python -m utils.bert_em_fine_tuning_wdc --fit False --use_case Structured_Fodors-Zagats --tok sent_pair --typeMask random
-  python -m utils.bert_em_fine_tuning_wdc --fit False --use_case Structured_Fodors-Zagats --tok sent_pair --bert_model sentence-transformers/nli-bert-base --typeMask random
+  python -m experiments.masking.word_masking.py --use_cases all --bert_model bert-base-uncased --approach bert --max-len <MAX_LEN> --output_dir <OUTPUT_DIR>
+  python -m experiments.masking.word_masking.py --use_cases all --bert_model sentence-transformers/nli-bert-base --approach sbert --max-len <MAX_LEN> --output_dir <OUTPUT_DIR>
+  python -m experiments.masking.word_masking.py --use_cases all --bert_model roberta-base --approach ditto --max-len <MAX_LEN> --output_dir <OUTPUT_DIR>
+  python -m experiments.masking.word_masking.py --use_cases all --bert_model roberta-base --approach supcon --max-len <MAX_LEN> --output_dir <OUTPUT_DIR>
+  python -m experiments.masking.analyze_masking_results.py
 ```
 
-Masking attribute by adopting BERT and SBERT Model. The `--typeMask` can assume value `off`,`random` or`maskSyn`. Default value is `off`.
+### Experiment Sec. 7.3.2 (Fig. 15)
+
+Run the experiment
 ```python
-  python -m utils.bert_em_fine_tuning_wdc --fit False --use_case Structured_Fodors-Zagats --tok attr_pair --typeMask random
-  python -m utils.bert_em_fine_tuning_wdc --fit False --use_case Structured_Fodors-Zagats --tok attr_pair --bert_model sentence-transformers/nli-bert-base --typeMask random
+  python -m experiments.sent_sim.model_sent_corr.py --use_cases all --bert_model bert-base-uncased --approach bert --train_type pt --output_dir <OUTPUT_DIR>
+  python -m experiments.sent_sim.model_sent_corr.py --use_cases all --bert_model sentence-transformers/nli-bert-base --approach sbert --train_type pt --output_dir <OUTPUT_DIR>
+  python -m experiments.sent_sim.model_sent_corr.py --use_cases all --bert_model bert-base-uncased --approach bert --train_type ft --output_dir <OUTPUT_DIR>
+  python -m experiments.sent_sim.model_sent_corr.py --use_cases all --bert_model sentence-transformers/nli-bert-base --approach sbert --train_type ft --output_dir <OUTPUT_DIR>
+  python -m experiments.sent_sim.model_sent_corr.py --use_cases all --bert_model roberta-base --approach ditto --output_dir <OUTPUT_DIR>
+  python -m experiments.sent_sim.model_sent_corr.py --use_cases all --bert_model roberta-base --approach supcon --output_dir <OUTPUT_DIR>
+  python -m experiments.sent_sim.load_sent_corr_results.py
 ```
 
 
