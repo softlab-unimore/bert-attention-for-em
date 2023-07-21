@@ -260,7 +260,7 @@ Masking the tokens of BERT, SBERT, Ditto and SupCon models with multiple criteri
 
 ### Experiment Sec. 7.3.2 (Fig. 15)
 
-Run the experiment
+Evaluate the correlation between Jaccard sentence similarity and cosine BERT, SBERT, Ditto, SupCon embedding similarity.
 ```python
   python -m experiments.sent_sim.model_sent_corr.py --use_cases all --bert_model bert-base-uncased --approach bert --train_type pt --output_dir <OUTPUT_DIR>
   python -m experiments.sent_sim.model_sent_corr.py --use_cases all --bert_model sentence-transformers/nli-bert-base --approach sbert --train_type pt --output_dir <OUTPUT_DIR>
