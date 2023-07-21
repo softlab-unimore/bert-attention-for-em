@@ -159,6 +159,34 @@ def compute_performance_OLD(results):
     return out_results
 
 
+def save_masking_pair_plot(data):
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(12, 4), sharey=True)
+    axes = axes.flat
+    df_sent = data[data['encoding'] == 'sent-pair']
+    sns.boxplot(x="masking", hue="model", y="F1", data=df_sent, ax=axes[0])
+    axes[0].set_title('Sent-pair', fontsize=14)
+    axes[0].get_legend().remove()
+    axes[0].tick_params(axis='both', which='major', labelsize=14)
+    axes[0].tick_params(axis='both', which='minor', labelsize=14)
+    axes[0].set_xlabel('masking', fontsize=14)
+    axes[0].set_ylabel('F1', fontsize=14)
+
+    df_attr = data[data['encoding'] == 'attr-pair']
+    sns.boxplot(x="masking", hue="model", y="F1", data=df_attr, ax=axes[1])
+    axes[1].set_title('Attr-pair', fontsize=14)
+    axes[1].get_legend().remove()
+    axes[1].get_yaxis().set_visible(False)
+    axes[1].tick_params(axis='both', which='major', labelsize=14, left=False)
+    axes[1].tick_params(axis='both', which='minor', labelsize=14)
+    axes[1].set_xlabel('masking', fontsize=14)
+
+    handles, labels = axes[1].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='lower center', ncol=2)
+
+    plt.tight_layout()
+    plt.savefig("sbert_masking_all.pdf")
+
+
 def save_masking_plot(data, key):
     sel_data = data[data['encoding'] == key]
     ax = sns.boxplot(x="masking", hue="model", y="F1", data=sel_data)
@@ -169,7 +197,7 @@ def save_masking_plot(data, key):
     fig = plt.gcf()
     fig.set_size_inches(6, 4)
     plt.tight_layout()
-    plt.savefig(f"sbert_masking_{key}.pdf")
+    plt.savefig("em_masking.pdf")
 
 
 if __name__ == '__main__':
