@@ -9,6 +9,7 @@ import torch
 from sklearn.metrics import f1_score
 import os
 import pickle
+from pathlib import Path
 
 from core.data_models.em_dataset import EMDataset
 from utils.general import get_dataset, get_sample
@@ -17,6 +18,11 @@ from utils.data_selection import Sampler
 from functools import reduce
 from collections import Counter
 from itertools import product
+from utils.bert_utils import get_left_and_right_word_ids
+
+
+PROJECT_DIR = Path(__file__).parent.parent.parent
+RESULTS_DIR = os.path.join(PROJECT_DIR, 'results', 'models')
 
 
 def get_most_freq_words(df: pd.DataFrame, topk: int):
@@ -167,7 +173,7 @@ def get_preds(model_name, eval_dataset: EMDataset):
     tuned_model.to('cpu')
     tuned_model.eval()
 
-    loader = DataLoader(eval_dataset, batch_size=32, num_workers=4, shuffle=False)
+    loader = DataLoader(eval_dataset, batch_size=32, num_workers=4, shuffle=False, collate_fn=eval_dataset.pad)
 
     labels = None
     preds = None
@@ -209,8 +215,23 @@ def get_flipped_preds_stats(df_by_word, model_path, orig_preds):
     return res
 
 
+def get_avg_record_length(dataset: EMDataset):
+    loader = DataLoader(dataset, batch_size=32, num_workers=4, shuffle=False, collate_fn=dataset.pad)
 
-RESULTS_DIR = "C:\\Users\\matte\\PycharmProjects\\bertAttention\\results\\models"
+    record_lengths = []
+    for batch in loader:
+        batch_word_ids = batch['word_ids']
+
+        for wids in batch_word_ids:
+            _, left_word_ids, right_word_ids = get_left_and_right_word_ids(list(wids))
+            left_word_ids = np.array(left_word_ids)
+            right_word_ids = np.array(right_word_ids)
+            num_left_words = left_word_ids[left_word_ids != None].max() + 1
+            num_right_words = right_word_ids[right_word_ids != None].max() + 1
+            min_num_words = min(num_left_words, num_right_words)
+            record_lengths.append(min_num_words)
+
+    return np.mean(record_lengths)
 
 
 if __name__ == '__main__':
@@ -235,6 +256,8 @@ if __name__ == '__main__':
                         help='boolean flag for permuting dataset attributes')
     parser.add_argument('-v', '--verbose', default=False, type=lambda x: bool(distutils.util.strtobool(x)),
                         help='boolean flag for the dataset verbose modality')
+    parser.add_argument('-out_dir', '--output_dir', type=str,
+                        help='the directory where to store the results', required=True)
 
     args = parser.parse_args()
     pd.set_option('display.width', None)
@@ -268,50 +291,53 @@ if __name__ == '__main__':
         model_path = os.path.join(RESULTS_DIR, f"{use_case}_{args.tok}_tuned")
 
         # Find the most frequent words in the matching records of the training set
-        top_train_match = get_most_freq_matching_words(train_dataset, 'match', 'singleton', topk=10)
-
-        # Find the least frequent words in the matching records of the training set
-        bottom_train_match = get_most_freq_matching_words(train_dataset, 'match', 'singleton', topk=-10)
+        # top_train_match = get_most_freq_matching_words(train_dataset, 'match', 'singleton', topk=10)
+        #
+        # # Find the least frequent words in the matching records of the training set
+        # bottom_train_match = get_most_freq_matching_words(train_dataset, 'match', 'singleton', topk=-10)
 
         random_words = get_random_matching_words(train_dataset, size=10)
 
-        # Insert the topk words of the train (match) in the test (non-match)
-        test_non_match, top_test_non_match = inject_words_into_dataset(
-            test_dataset, 'non_match', top_train_match, repeat=5
-        )
-
-        # Insert the bottomk words of the train (match) in the test (non-match)
-        _, bottom_test_non_match = inject_words_into_dataset(
-            test_dataset, 'non_match', bottom_train_match, repeat=5
-        )
+        # # Insert the topk words of the train (match) in the test (non-match)
+        # test_non_match, top_test_non_match = inject_words_into_dataset(
+        #     test_dataset, 'non_match', top_train_match, repeat=5
+        # )
+        #
+        # # Insert the bottomk words of the train (match) in the test (non-match)
+        # _, bottom_test_non_match = inject_words_into_dataset(
+        #     test_dataset, 'non_match', bottom_train_match, repeat=5
+        # )
 
         # Insert the random words in the test (non-match)
-        _, random_test_non_match = inject_words_into_dataset(
+        test_non_match, random_test_non_match = inject_words_into_dataset(
             test_dataset, 'non_match', random_words, repeat=5
         )
 
-        _, orig_preds = get_preds(model_path, test_non_match)
+        avg_record_length = get_avg_record_length(test_non_match)
+        print(f"UC: {use_case}, AVG_LEN: {avg_record_length}")
 
-        print("#" * 30)
-        print("TOP")
-        print("#" * 30)
-        top_res = get_flipped_preds_stats(top_test_non_match, model_path, orig_preds)
-
-        print("#" * 30)
-        print("BOTTOM")
-        print("#" * 30)
-        bottom_res = get_flipped_preds_stats(bottom_test_non_match, model_path, orig_preds)
-
-        print("#" * 30)
-        print("RANDOM")
-        print("#" * 30)
-        random_res = get_flipped_preds_stats(random_test_non_match, model_path, orig_preds)
-
-        tot_res = {
-            'top': top_res,
-            'bottom': bottom_res,
-            'random': random_res
-        }
-
-        with open(f'word_occ_hacking_{use_case}_repeat5.pickle', 'wb') as fp:
-            pickle.dump(tot_res, fp, protocol=pickle.HIGHEST_PROTOCOL)
+        # _, orig_preds = get_preds(model_path, test_non_match)
+        #
+        # # print("#" * 30)
+        # # print("TOP")
+        # # print("#" * 30)
+        # # top_res = get_flipped_preds_stats(top_test_non_match, model_path, orig_preds)
+        # #
+        # # print("#" * 30)
+        # # print("BOTTOM")
+        # # print("#" * 30)
+        # # bottom_res = get_flipped_preds_stats(bottom_test_non_match, model_path, orig_preds)
+        #
+        # print("#" * 30)
+        # print("RANDOM")
+        # print("#" * 30)
+        # random_res = get_flipped_preds_stats(random_test_non_match, model_path, orig_preds)
+        #
+        # tot_res = {
+        #     # 'top': top_res,
+        #     # 'bottom': bottom_res,
+        #     'random': random_res
+        # }
+        #
+        # with open(os.path.join(args.output_dir, f'word_occ_hacking_{use_case}_repeat5.pickle'), 'wb') as fp:
+        #     pickle.dump(tot_res, fp, protocol=pickle.HIGHEST_PROTOCOL)

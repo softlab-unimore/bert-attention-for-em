@@ -35,7 +35,7 @@ def get_use_case(use_case: str, bench='dm'):
 def get_dataset(conf: dict):
     assert isinstance(conf, dict), "Wrong data type for parameter 'conf'."
     params = ['use_case', 'data_type', 'model_name', 'tok', 'label_col', 'left_prefix', 'right_prefix', 'max_len',
-              'verbose', 'permute', 'typeMask', 'columnMask']
+              'verbose', 'permute']
     assert all([p in conf for p in params])
     assert isinstance(conf['data_type'], str), "Wrong data type for parameter 'data_type'."
     assert conf['data_type'] in ['train', 'test', 'valid'], "Wrong value for parameter 'data_type'."
@@ -50,8 +50,8 @@ def get_dataset(conf: dict):
     max_len = conf['max_len']
     verbose = conf['verbose']
     permute = conf['permute']
-    typeMask = conf['typeMask']
-    columnMask = conf['columnMask']
+    typeMask = conf.get('typeMask')
+    columnMask = conf.get('columnMask')
     return_offset = False
     if 'return_offset' in conf:
         return_offset = conf['return_offset']

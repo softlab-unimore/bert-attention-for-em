@@ -205,16 +205,6 @@ def ditto_sentence_similarity(use_case, lm, max_len):
 
 
 def supcon_sentence_similarity(use_case, lm, max_len):
-    def get_posneg():
-        if lm == ['Structured_Walmart-Amazon', 'Dirty_Walmart-Amazon']:
-            return 10
-        elif lm in ['Structured_Beer', 'Structured_Amazon-Google', 'Textual_Abt-Buy', 'Structured_Fodors-Zagats']:
-            return 9
-        elif lm == ['Structured_DBLP-ACM', 'Structured_DBLP-GoogleScholar', 'Dirty_DBLP-ACM',
-                    'Dirty_DBLP-GoogleScholar']:
-            return 8
-        elif lm == ['Structured_iTunes-Amazon', 'Dirty_iTunes-Amazon']:
-            return 7
 
     supcon_collector = DataCollectorSupCon()
     test_path = supcon_collector.get_path(use_case=use_case, data_type='test')
@@ -232,7 +222,6 @@ def supcon_sentence_similarity(use_case, lm, max_len):
         len_tokenizer=len(test_dataset.tokenizer),
         model=lm,
         frozen=True,
-        pos_neg=get_posneg(),
         device=device
     )
 

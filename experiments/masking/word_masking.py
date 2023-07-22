@@ -66,7 +66,8 @@ def load_ditto_model(path, lm='roberta'):
     if not os.path.exists(path):
         raise ValueError(f"Model not found: {path}!")
 
-    model = DittoModel(device='cpu', lm=lm)
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    model = DittoModel(device=device, lm=lm)
 
     saved_state = torch.load(path, map_location=lambda storage, loc: storage)
     model.load_state_dict(saved_state['model'])
@@ -74,7 +75,8 @@ def load_ditto_model(path, lm='roberta'):
     return model
 
 
-def evaluate(tuned_model, eval_dataset: EMDataset, thr=None, collate_fn=None):
+def evaluate(tuned_model, eval_dataset: (EMDataset, DittoDataset, ContrastiveClassificationDataset), thr=None,
+             collate_fn=None):
     print("Starting the inference task...")
 
     eval_dataloader = DataLoader(
@@ -85,7 +87,8 @@ def evaluate(tuned_model, eval_dataset: EMDataset, thr=None, collate_fn=None):
         collate_fn=collate_fn
     )
 
-    tuned_model.to('cpu')
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    tuned_model.to(device)
     tuned_model.eval()
 
     preds = None
@@ -238,16 +241,6 @@ def evaluate_ditto(use_case: str, lm: str, type_mask: str, topk_mask: int, max_l
 
 
 def evaluate_supcon(use_case: str, lm: str, type_mask: str, topk_mask: int, max_len: int):
-    def get_posneg():
-        if lm == ['Structured_Walmart-Amazon', 'Dirty_Walmart-Amazon']:
-            return 10
-        elif lm in ['Structured_Beer', 'Structured_Amazon-Google', 'Textual_Abt-Buy', 'Structured_Fodors-Zagats']:
-            return 9
-        elif lm == ['Structured_DBLP-ACM', 'Structured_DBLP-GoogleScholar', 'Dirty_DBLP-ACM',
-                    'Dirty_DBLP-GoogleScholar']:
-            return 8
-        elif lm == ['Structured_iTunes-Amazon', 'Dirty_iTunes-Amazon']:
-            return 7
 
     supcon_collector = DataCollectorSupCon()
     test_path = supcon_collector.get_path(use_case=use_case, data_type='test')
@@ -258,14 +251,14 @@ def evaluate_supcon(use_case: str, lm: str, type_mask: str, topk_mask: int, max_
     )
 
     # Load the model
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
     model_path = os.path.join(RESULTS_DIR, "supcon", f"{use_case}.bin")
     tuned_model = ContrastiveClassifierModel(
         checkpoint_path=model_path,
         len_tokenizer=len(test_dataset.tokenizer),
         model=lm,
         frozen=True,
-        pos_neg=get_posneg(),
-        device='cpu'
+        device=device
     )
 
     if type_mask == 'maskSem':
@@ -332,7 +325,7 @@ if __name__ == '__main__':
 
     for use_case in use_cases:
         for token in ['sent_pair']:  # 'attr_pair', 'sent_pair'
-            for modeMask in ['maskSyn']:  # 'off', 'random', 'maskSem', 'maskSyn'
+            for modeMask in ['off']:  # 'off', 'random', 'maskSem', 'maskSyn'
                 for topk_mask in [3]:  # None, 3
                     if modeMask == 'selectCol' and token == 'sent_pair':
                         continue
