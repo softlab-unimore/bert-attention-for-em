@@ -279,8 +279,20 @@ Degradation Test Lerf and Morf.
   python -m utils.exp_degradation --fit False --use_cases Structured_Fodors-Zagats
 ```
 
+### Experiment Sec. 8.2
+
+Evaluate how many cliques are correctly recognized by an EM model.
+```python
+  python -m experiments.cliques.cluster_matching_records.py --bert_model bert-base-uncased --approach bert --output_dir <OUTPUT_DIR>
+```
 
 ### Experiment Sec. 8.3
+
+Evaluate robustness to token injection.
+```python
+  python -m experiments.robustness.robustness_test.py --use_cases all --output_dir <OUTPUT_DIR>
+  python -m experiments.robustness.load_word_occ_hacking_results.py
+```
 
 Evaluate out-of-distribution effectiveness.
 ```python
