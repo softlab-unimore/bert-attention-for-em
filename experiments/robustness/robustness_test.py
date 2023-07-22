@@ -1,3 +1,5 @@
+import time
+
 import pandas as pd
 from transformers import AutoModelForSequenceClassification
 from torch.utils.data import DataLoader
@@ -129,6 +131,17 @@ def inject_pair_word_into_row(row, pair, repeat=5):
     return new_row
 
 
+def inject_into_row(row, word, repeat):
+    if isinstance(word, str):
+        new_row = inject_word_into_row(row, word, repeat=repeat)
+    elif isinstance(word, tuple):
+        new_row = inject_pair_word_into_row(row, word, repeat=repeat)
+    else:
+        raise ValueError()
+
+    return new_row
+
+
 def inject_words_into_dataset(dataset, data_type, words, repeat=5):
     sampler = Sampler(dataset)
     dataset_params = sampler.dataset_params.copy()
@@ -148,16 +161,18 @@ def inject_words_into_dataset(dataset, data_type, words, repeat=5):
         if word == 'nan':
             continue
 
-        new_dataset = []
-        for ix, row in data.iterrows():
-            if isinstance(word, str):
-                new_row = inject_word_into_row(row, word, repeat=repeat)
-            elif isinstance(word, tuple):
-                new_row = inject_pair_word_into_row(row, word, repeat=repeat)
-            else:
-                raise ValueError()
-            new_dataset.append(new_row.to_frame().T)
-        new_datasets[word] = pd.concat(new_dataset)
+        new_dataset = data.apply(lambda x: inject_into_row(x, word, repeat), axis=1)
+        # new_dataset = []
+        # for ix, row in data.iterrows():
+        #     if isinstance(word, str):
+        #         new_row = inject_word_into_row(row, word, repeat=repeat)
+        #     elif isinstance(word, tuple):
+        #         new_row = inject_pair_word_into_row(row, word, repeat=repeat)
+        #     else:
+        #         raise ValueError()
+        #     new_dataset.append(new_row.to_frame().T)
+        # new_datasets[word] = pd.concat(new_dataset)
+        new_datasets[word] = new_dataset
 
     out_data = sampler._create_dataset(data, dataset_params)
     out_mod_data = {k: sampler._create_dataset(v, dataset_params) for k, v in new_datasets.items()}
@@ -165,10 +180,8 @@ def inject_words_into_dataset(dataset, data_type, words, repeat=5):
     return out_data, out_mod_data
 
 
-def get_preds(model_name, eval_dataset: EMDataset):
+def get_preds(tuned_model, eval_dataset: EMDataset):
     assert isinstance(eval_dataset, EMDataset), "Wrong data type for parameter 'eval_dataset'."
-
-    tuned_model = AutoModelForSequenceClassification.from_pretrained(model_name)
 
     tuned_model.to('cpu')
     tuned_model.eval()
@@ -197,10 +210,10 @@ def get_preds(model_name, eval_dataset: EMDataset):
     return labels, preds
 
 
-def get_flipped_preds_stats(df_by_word, model_path, orig_preds):
+def get_flipped_preds_stats(df_by_word, model, orig_preds):
     res = {}
     for word, em_df in df_by_word.items():
-        _, mod_preds = get_preds(model_path, em_df)
+        _, mod_preds = get_preds(model, em_df)
         flip_idxs = np.where((orig_preds == 0) & (mod_preds == 1))[0]
         flip_perc = (len(flip_idxs) / len(mod_preds)) * 100
         print(word, flip_perc)
@@ -289,6 +302,7 @@ if __name__ == '__main__':
         test_dataset = get_dataset(test_conf)
 
         model_path = os.path.join(RESULTS_DIR, f"{use_case}_{args.tok}_tuned")
+        tuned_model = AutoModelForSequenceClassification.from_pretrained(model_path)
 
         # Find the most frequent words in the matching records of the training set
         # top_train_match = get_most_freq_matching_words(train_dataset, 'match', 'singleton', topk=10)
@@ -310,34 +324,34 @@ if __name__ == '__main__':
 
         # Insert the random words in the test (non-match)
         test_non_match, random_test_non_match = inject_words_into_dataset(
-            test_dataset, 'non_match', random_words, repeat=5
+            test_dataset, 'non_match', random_words, repeat=3
         )
 
-        avg_record_length = get_avg_record_length(test_non_match)
-        print(f"UC: {use_case}, AVG_LEN: {avg_record_length}")
+        # avg_record_length = get_avg_record_length(test_non_match)
+        # print(f"UC: {use_case}, AVG_LEN: {avg_record_length}")
 
-        # _, orig_preds = get_preds(model_path, test_non_match)
-        #
-        # # print("#" * 30)
-        # # print("TOP")
-        # # print("#" * 30)
-        # # top_res = get_flipped_preds_stats(top_test_non_match, model_path, orig_preds)
-        # #
-        # # print("#" * 30)
-        # # print("BOTTOM")
-        # # print("#" * 30)
-        # # bottom_res = get_flipped_preds_stats(bottom_test_non_match, model_path, orig_preds)
+        _, orig_preds = get_preds(tuned_model, test_non_match)
+
+        # print("#" * 30)
+        # print("TOP")
+        # print("#" * 30)
+        # top_res = get_flipped_preds_stats(top_test_non_match, model_path, orig_preds)
         #
         # print("#" * 30)
-        # print("RANDOM")
+        # print("BOTTOM")
         # print("#" * 30)
-        # random_res = get_flipped_preds_stats(random_test_non_match, model_path, orig_preds)
-        #
-        # tot_res = {
-        #     # 'top': top_res,
-        #     # 'bottom': bottom_res,
-        #     'random': random_res
-        # }
-        #
-        # with open(os.path.join(args.output_dir, f'word_occ_hacking_{use_case}_repeat5.pickle'), 'wb') as fp:
-        #     pickle.dump(tot_res, fp, protocol=pickle.HIGHEST_PROTOCOL)
+        # bottom_res = get_flipped_preds_stats(bottom_test_non_match, model_path, orig_preds)
+
+        print("#" * 30)
+        print("RANDOM")
+        print("#" * 30)
+        random_res = get_flipped_preds_stats(random_test_non_match, tuned_model, orig_preds)
+
+        tot_res = {
+            # 'top': top_res,
+            # 'bottom': bottom_res,
+            'random': random_res
+        }
+
+        with open(os.path.join(args.output_dir, f'word_occ_hacking_{use_case}.pickle'), 'wb') as fp:
+            pickle.dump(tot_res, fp, protocol=pickle.HIGHEST_PROTOCOL)

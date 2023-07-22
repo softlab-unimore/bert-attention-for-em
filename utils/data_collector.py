@@ -124,6 +124,16 @@ class DataCollector(object):
         for use_case in DM_USE_CASES:
             self.get_data(use_case)
 
+    def get_path(self, use_case: str, data_type: str):
+        assert isinstance(use_case, str), "Wrong use case type."
+        assert use_case in DM_USE_CASES, "Wrong use case name."
+        assert data_type in ['train', 'valid', 'test']
+        use_case = use_case.replace("_", os.sep)
+
+        print(f"USE CASE: {use_case}")
+
+        return os.path.join(self.data_dir, use_case, f'{data_type}.csv')
+
 
 class DataCollectorWDC:
     def __init__(self, data_dir: str = 'data'):
@@ -152,6 +162,16 @@ class DataCollectorWDC:
             print("Data already downloaded.")
 
         return use_case_data_dir
+
+    def get_path(self, use_case: str, data_type: str):
+        assert isinstance(use_case, str), "Wrong use case type."
+        assert use_case in WDC_USE_CASES, "Wrong use case name."
+        assert data_type in ['train', 'valid', 'test']
+        use_case = use_case.replace("_", os.sep)
+
+        print(f"USE CASE: {use_case}")
+
+        return os.path.join(self.data_dir, use_case, f'{data_type}.csv')
 
 
 class DataCollectorDitto:
@@ -187,6 +207,6 @@ class DataCollectorSupCon:
         if data_type == 'test':
             filename = f'{use_case}-gs.json.gz'
         else:
-            raise NotImplementedError()
+            filename = f'{use_case}-train.json.gz'
 
         return os.path.join(self.data_dir, use_case, filename)

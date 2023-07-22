@@ -15,6 +15,12 @@ import torch
 from transformers import AutoTokenizer
 import nlpaug.augmenter.word as naw
 import nlpaug.augmenter.char as nac
+from pathlib import Path
+import os
+
+
+PROJECT_DIR = Path(__file__).parent.parent.parent
+DATA_DIR = os.path.join(PROJECT_DIR, 'data', 'supcon')
 
 
 def assign_clusterid(identifier, cluster_id_dict, cluster_id_amount):
@@ -131,7 +137,7 @@ class ContrastiveClassificationDataset(torch.utils.data.Dataset):
         data = data.fillna('')
 
         if self.dataset_type != 'test':
-            validation_ids = pd.read_csv(f'../../data/interim/{dataset}/{dataset}-valid.csv')
+            validation_ids = pd.read_csv(os.path.join(DATA_DIR, dataset, f'{dataset}-valid.csv'))
 
             if self.dataset_type == 'train':
                 data = data[~data['pair_id'].isin(validation_ids['pair_id'])]
@@ -139,6 +145,7 @@ class ContrastiveClassificationDataset(torch.utils.data.Dataset):
                 data = data[data['pair_id'].isin(validation_ids['pair_id'])]
 
         data = data.reset_index(drop=True)
+        self.raw_data = data
 
         data = self._prepare_data(data)
 
