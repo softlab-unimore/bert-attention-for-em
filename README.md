@@ -260,7 +260,7 @@ Masking the tokens of BERT, SBERT, Ditto and SupCon models with multiple criteri
 
 ### Experiment Sec. 7.3.2 (Fig. 15)
 
-Evaluate the correlation between Jaccard sentence similarity and cosine BERT, SBERT, Ditto, SupCon embedding similarity.
+Evaluate the correlation between the Jaccard sentence similarity and the cosine similarity between BERT, SBERT, Ditto, SupCon embeddings.
 ```python
   python -m experiments.sent_sim.model_sent_corr.py --use_cases all --bert_model bert-base-uncased --approach bert --train_type pt --output_dir <OUTPUT_DIR>
   python -m experiments.sent_sim.model_sent_corr.py --use_cases all --bert_model sentence-transformers/nli-bert-base --approach sbert --train_type pt --output_dir <OUTPUT_DIR>
@@ -279,6 +279,29 @@ Degradation Test Lerf and Morf.
   python -m utils.exp_degradation --fit False --use_cases Structured_Fodors-Zagats
 ```
 
+### Experiment Sec. 8.2
+
+Evaluate how many cliques are correctly recognized by an EM model.
+```python
+  python -m experiments.cliques.cluster_matching_records.py --bert_model bert-base-uncased --approach bert --output_dir <OUTPUT_DIR>
+```
+
+### Experiment Sec. 8.3
+
+Evaluate robustness to token injection.
+```python
+  python -m experiments.robustness.robustness_test.py --use_cases all --output_dir <OUTPUT_DIR>
+  python -m experiments.robustness.load_word_occ_hacking_results.py
+```
+
+Evaluate out-of-distribution effectiveness.
+```python
+  python -m experiments.robustness.ood_experiment.py --bert_model bert-base-uncased --approach bert --output_dir <OUTPUT_DIR>
+  python -m experiments.robustness.ood_experiment.py --bert_model sentence-transformers/nli-bert-base --approach sbert --output_dir <OUTPUT_DIR>
+  python -m experiments.robustness.ood_experiment.py --bert_model roberta-base --approach ditto --output_dir <OUTPUT_DIR>
+  python -m experiments.robustness.ood_experiment.py --bert_model roberta-base --approach supcon --output_dir <OUTPUT_DIR>
+  python -m experiments.robustness.load_ood_results.py
+```
 
 ## License
 [MIT License](LICENSE)
