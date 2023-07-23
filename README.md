@@ -290,7 +290,7 @@ Evaluate how many cliques are correctly recognized by an EM model.
 
 Evaluate robustness to token injection.
 ```python
-  python -m experiments.robustness.robustness_test.py --use_cases all --output_dir <OUTPUT_DIR>
+  python -m experiments.robustness.robustness_test.py --use_cases all --repeat 5 --output_dir <OUTPUT_DIR>
   python -m experiments.robustness.load_word_occ_hacking_results.py
 ```
 
