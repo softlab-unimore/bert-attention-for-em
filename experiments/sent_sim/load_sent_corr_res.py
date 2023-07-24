@@ -68,6 +68,7 @@ def prepare_data_for_plot(df: pd.DataFrame):
 
     return df
 
+
 def plot_sentence_sim_res(data: pd.DataFrame):
     fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(8.75, 3.5), sharey=True)
     axes = axes.flat
