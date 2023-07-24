@@ -271,6 +271,8 @@ if __name__ == '__main__':
                         help='boolean flag for the dataset verbose modality')
     parser.add_argument('-out_dir', '--output_dir', type=str,
                         help='the directory where to store the results', required=True)
+    parser.add_argument('-repeat', '--repeat', default=5, type=int, required=True,
+                        help='How many times the injected words are repeated')
 
     args = parser.parse_args()
     pd.set_option('display.width', None)
@@ -278,6 +280,7 @@ if __name__ == '__main__':
     use_cases = args.use_cases
     if use_cases == ['all']:
         use_cases = DM_USE_CASES
+    repeat = args.repeat
 
     results = {}
     for use_case in use_cases:
@@ -324,7 +327,7 @@ if __name__ == '__main__':
 
         # Insert the random words in the test (non-match)
         test_non_match, random_test_non_match = inject_words_into_dataset(
-            test_dataset, 'non_match', random_words, repeat=3
+            test_dataset, 'non_match', random_words, repeat=repeat
         )
 
         # avg_record_length = get_avg_record_length(test_non_match)
@@ -353,5 +356,5 @@ if __name__ == '__main__':
             'random': random_res
         }
 
-        with open(os.path.join(args.output_dir, f'word_occ_hacking_{use_case}.pickle'), 'wb') as fp:
+        with open(os.path.join(args.output_dir, f'INJECTION_{use_case}_repeat{repeat}.pickle'), 'wb') as fp:
             pickle.dump(tot_res, fp, protocol=pickle.HIGHEST_PROTOCOL)
