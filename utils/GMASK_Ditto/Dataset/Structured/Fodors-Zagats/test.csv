@@ -1,0 +1,2 @@
+left_name,left_addr,left_city,left_phone,left_type,left_id,right_name,right_addr,right_city,right_phone,right_type,right_id,label
+` rex il ristorante ',' 617 s. olive st. ',` los angeles ',213/627 -2300,italian,19,` rex il ristorante ',' 617 s. olive st. ',` los angeles ',213-627-2300,` nuova cucina italian ',19,1
