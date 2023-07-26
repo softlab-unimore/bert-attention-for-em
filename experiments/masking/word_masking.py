@@ -229,7 +229,8 @@ def evaluate_ditto(use_case: str, lm: str, type_mask: str, topk_mask: int, max_l
 
     # Find the best classifier threshold
     threshold = tune_threshold(valid_dataset, tuned_model)
-
+    print(threshold)
+    exit(1)
     res = evaluate(tuned_model, test_dataset, thr=threshold, collate_fn=test_dataset.pad)
 
     print(f1_score(res['labels'], res['preds']))

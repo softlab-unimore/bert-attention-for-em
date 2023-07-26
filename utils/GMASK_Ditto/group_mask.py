@@ -148,7 +148,7 @@ class WordMask(nn.Module):
         return self.R_vec
 
     
-    def forward(self, model, inputs, pred, flag):
+    def forward(self, model, inputs, pred, flag, thr=None):
         # embedding
         x = model.roberta.embeddings(inputs['input_ids'], inputs['token_type_ids'])
         attention_masks_r = inputs['attention_mask']
@@ -204,7 +204,14 @@ class WordMask(nn.Module):
             # output = model(input_ids_r, x_prime, inputs['token_type_ids'], attention_masks_r, pred)
             output = model(inputs_embeds=x_prime.long(), token_type_ids=inputs['token_type_ids'], attention_mask=attention_masks_r, labels=pred)
             pred_loss, out_logits = output[:2]
-            _, out_pred = out_logits.max(dim=1)
+
+            if thr is None:
+                _, out_pred = out_logits.max(dim=1)
+            else:
+                out_pred = out_logits.softmax(dim=1)[:, 1]
+                out_pred[out_pred >= thr] = 1
+                out_pred[out_pred < thr] = 0
+                out_pred = out_pred.long()
 
             return pred_loss, r_prob
 
@@ -251,7 +258,7 @@ def mostImpWord(args, model, inputs, pred):
     x_imp = r_prob.squeeze(0).squeeze(-1).detach().cpu().numpy()
     return x_imp
 
-def interpret(args, model, inputs, pred):
+def interpret(args, model, inputs, pred, thr=None):
     model.eval()
     # sep_idx = [d for d, i in enumerate(inputs['input_ids'][0]) if int(i) == 102]
     sep_idx = [d for d, i in enumerate(inputs['input_ids'][0]) if int(i) == 2]
@@ -271,11 +278,11 @@ def interpret(args, model, inputs, pred):
     print(w_epochs)
     for _ in range(w_epochs):
         wmask_optimizer.zero_grad()
-        pred_loss, r_prob = wmask(model, inputs, pred, 'train')
+        pred_loss, r_prob = wmask(model, inputs, pred, 'train', thr)
         loss = pred_loss + w_beta * wmask.r_loss
         loss.backward()
         wmask_optimizer.step()
-    _, r_prob = wmask(model, inputs, pred, 'test')
+    _, r_prob = wmask(model, inputs, pred, 'test', thr)
 
 
     kw = min(100, sent1_len + sent2_len) # sent1_len + sent2_len # min(10, sent1_len + sent2_len)

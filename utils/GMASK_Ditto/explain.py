@@ -147,7 +147,7 @@ def createOrdImp(args, model, tokenizer, eval_dataset, listInfo, listAttrName):
 
 
 
-def test_explain(args, model, tokenizer, eval_dataset, listInfo, listAttrName):
+def test_explain(args, model, tokenizer, eval_dataset, listInfo, listAttrName, thr=None):
     eval_output_dir = args.output_dir
     if not os.path.exists(eval_output_dir):
         os.makedirs(eval_output_dir)
@@ -198,7 +198,13 @@ def test_explain(args, model, tokenizer, eval_dataset, listInfo, listAttrName):
             outputs = model(**inputs)
             tmp_eval_loss, logits = outputs[:2]
 
-        _, pred = logits.max(dim=1)
+        if thr is None:
+            _, pred = logits.max(dim=1)
+        else:
+            pred = logits.softmax(dim=1)[:, 1]
+            pred[pred >= thr] = 1
+            pred[pred < thr] = 0
+            pred = pred.long()
 
         fileobject.write(str(inputs['labels'].detach().cpu().numpy()[0]))
         fileobject1.write(str(inputs['labels'].detach().cpu().numpy()[0]))
@@ -213,7 +219,7 @@ def test_explain(args, model, tokenizer, eval_dataset, listInfo, listAttrName):
         # explain model prediction
 
         args.input_words = input_words
-        output, z_prob, t_prob, x_ids, z_max_idx, somVal, x_imp = interpret(args, model, inputs, pred)
+        output, z_prob, t_prob, x_ids, z_max_idx, somVal, x_imp = interpret(args, model, inputs, pred, thr)
         listGroupWord = []
         listGroupAttr = []
         listWeight = []
@@ -409,6 +415,7 @@ def main():
                         help="random seed for initialization")
     parser.add_argument('--gpu', default=0, type=int, help='0:gpu, -1:cpu')
     parser.add_argument('--gpu_id', default='0', type=str, help='gpu id')
+    parser.add_argument('--pred_thr', default=None, type=float, help='Threshold for converting logits to predictions.')
     args = parser.parse_args()
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_id
 
@@ -423,6 +430,7 @@ def main():
 
     # get current path
     args.data_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), args.data_dir)
+    thr = args.pred_thr
 
     # Prepare GLUE task
     args.task_name = args.task_name.lower()
@@ -455,7 +463,7 @@ def main():
     # with open('prova.pickle', 'rb') as f:
     #     mydict = pickle.load(f)
     # test_dataset, listInfo, listAttr = mydict['d'], mydict['i'], mydict['a']
-    post_acc = test_explain(args, roberta_model, tokenizer, test_dataset, listInfo, listAttr)
+    post_acc = test_explain(args, roberta_model, tokenizer, test_dataset, listInfo, listAttr, thr)
     print('\npost_hoc_acc {:.6f}'.format(post_acc))
 
 
