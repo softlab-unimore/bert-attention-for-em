@@ -197,16 +197,30 @@ class DataCollectorSupCon:
 
         self.data_dir = os.path.join(PROJECT_DIR, data_dir, 'supcon')
 
+    @staticmethod
+    def is_wdc_dataset(use_case):
+        if 'Computers' in use_case or 'Shoes' in use_case or 'Watches' in use_case or 'Cameras' in use_case:
+            return True
+        return False
+
     def get_path(self, use_case: str, data_type: str):
         assert isinstance(use_case, str), "Wrong use case type."
-        assert use_case in DM_USE_CASES, "Wrong use case name."
+        assert use_case in WDC_USE_CASES, "Wrong use case name."
         assert data_type in ['train', 'valid', 'test']
 
         print(f"USE CASE: {use_case}")
 
-        if data_type == 'test':
-            filename = f'{use_case}-gs.json.gz'
+        if self.is_wdc_dataset(use_case):
+            size = use_case.split('_')[0].lower()
+            category = use_case.split('_')[1].lower()
+            if data_type in ['train', 'valid']:
+                filename = os.path.join('wdc-lspc', 'training-sets', f'preprocessed_{category}_train_{size}.pkl.gz')
+            else:
+                filename = os.path.join('wdc-lspc', 'gold-standards', f'preprocessed_{category}_gs.pkl.gz')
         else:
-            filename = f'{use_case}-train.json.gz'
+            if data_type == 'test':
+                filename = os.path.join(use_case, f'{use_case}-gs.json.gz')
+            else:
+                filename = os.path.join(use_case, f'{use_case}-train.json.gz')
 
-        return os.path.join(self.data_dir, use_case, filename)
+        return os.path.join(self.data_dir, filename)

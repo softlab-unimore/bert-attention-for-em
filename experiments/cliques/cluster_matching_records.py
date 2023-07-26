@@ -192,13 +192,24 @@ def supcon_clique_effectiveness(uc, lm, data_type, max_len):
     data_path = supcon_collector.get_path(use_case=uc, data_type=data_type)
 
     # Load the data
+    subset_dataset = None
+    dataset = uc
+    size = None
+    if supcon_collector.is_wdc_dataset(uc):
+        size = uc.split('_')[0].lower()
+        subset_dataset = uc.split('_')[1].lower()
+        dataset = 'lspc'
     dataset = ContrastiveClassificationDataset(
-        data_path, dataset_type=data_type, tokenizer=lm, dataset=uc
+        data_path, dataset_type=data_type, tokenizer=lm, dataset=dataset, sub_dataset=subset_dataset, size=size
     )
 
-    drop_cols = ['cluster_id_left', 'cluster_id_right', 'pair_id', 'features_left', 'features_right']
+    drop_cols = ['cluster_id_left', 'cluster_id_right', 'pair_id', 'features_left', 'features_right', 'category_left',
+                 'category_right', 'identifiers_left', 'identifiers_right', 'keyValuePairs_left', 'keyValuePairs_right',
+                 'specTableContent_left', 'specTableContent_right']
     df = dataset.raw_data
-    df = df.drop(drop_cols, axis=1)
+    for drop_col in drop_cols:
+        if drop_col in df.columns:
+            df = df.drop(drop_cols, axis=1)
 
     integrated_data = convert_matching_pairs_to_integrated_dataset(
         data=df,
@@ -314,11 +325,11 @@ if __name__ == '__main__':
     lm = args.bert_model
     max_len = 128
     use_cases = [
-        ('Structured_DBLP-GoogleScholar', 'valid', 'dm'),
-        ('Dirty_DBLP-GoogleScholar', 'valid', 'dm'),
-        ('Structured_DBLP-GoogleScholar', 'test', 'dm'),
-        ('Dirty_DBLP-GoogleScholar', 'test', 'dm'),
-        # ('Large_Computers', 'valid', 'wdc'),
+        # ('Structured_DBLP-GoogleScholar', 'valid', 'dm'),
+        # ('Dirty_DBLP-GoogleScholar', 'valid', 'dm'),
+        # ('Structured_DBLP-GoogleScholar', 'test', 'dm'),
+        # ('Dirty_DBLP-GoogleScholar', 'test', 'dm'),
+        ('Large_Computers', 'valid', 'wdc'),
         # ('Large_Cameras', 'valid', 'wdc'),
         # ('Large_Shoes', 'valid', 'wdc'),
         # ('Large_Watches', 'valid', 'wdc')

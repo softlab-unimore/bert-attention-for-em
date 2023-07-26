@@ -54,10 +54,14 @@ def add_seps(x: pd.Series):
 
 def serialize(data, side=None):
     if side is None:
-        feat_cols = [c for c in data.index if c not in ['id', 'labels', 'cluster_id']]
+        feat_cols = [c for c in data.index if
+                     c not in ['id', 'labels', 'cluster_id', 'specTableContent', 'category', 'identifiers', 'label',
+                               'pair_id', 'keyValuePairs']]
     else:
         feat_cols = [c for c in data.index if
-                     c not in [f'id_{side}', 'labels', f'cluster_id_{side}'] and c.endswith(side)]
+                     c not in [f'id_{side}', 'labels', f'cluster_id_{side}', f'specTableContent_{side}',
+                               f'category_{side}', f'identifiers_{side}', 'label', 'pair_id', f'keyValuePairs_{side}']
+                     and c.endswith(side)]
     entity = data[feat_cols]
     if side is not None:
         entity = entity.rename({c: c.replace(f'_{side}', '') for c in entity.index})
@@ -118,7 +122,7 @@ class ContrastiveClassificationDataset(torch.utils.data.Dataset):
                  'modelno', 'Price', 'ABV', 'city', 'Album_Name', 'specTableContent']
 
     def __init__(self, path, dataset_type, size=None, tokenizer='huawei-noah/TinyBERT_General_4L_312D', max_length=128,
-                 dataset='lspc', aug=False):
+                 dataset='lspc', aug=False, sub_dataset=None):
 
         self.max_length = max_length
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer, additional_special_tokens=('[COL]', '[VAL]'))
@@ -137,7 +141,13 @@ class ContrastiveClassificationDataset(torch.utils.data.Dataset):
         data = data.fillna('')
 
         if self.dataset_type != 'test':
-            validation_ids = pd.read_csv(os.path.join(DATA_DIR, dataset, f'{dataset}-valid.csv'))
+
+            if dataset == 'lspc':
+                assert sub_dataset is not None
+                validation_ids = pd.read_csv(os.path.join(DATA_DIR, 'wdc-lspc', 'validation-sets',
+                                                          f'{sub_dataset}_valid_{size}.csv'))
+            else:
+                validation_ids = pd.read_csv(os.path.join(DATA_DIR, dataset, f'{dataset}-valid.csv'))
 
             if self.dataset_type == 'train':
                 data = data[~data['pair_id'].isin(validation_ids['pair_id'])]
