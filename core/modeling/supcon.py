@@ -48,8 +48,11 @@ class BaseEncoder(nn.Module):
         self.transformer = AutoModel.from_pretrained(model)
         self.transformer.resize_token_embeddings(len_tokenizer)
 
-    def forward(self, input_ids, attention_mask):
-        output = self.transformer(input_ids, attention_mask)
+    def forward(self, input_ids, attention_mask, inputs_embeds=None):
+        if inputs_embeds is not None:
+            output = self.transformer(inputs_embeds=inputs_embeds)
+        else:
+            output = self.transformer(input_ids, attention_mask)
 
         return output
 
@@ -85,17 +88,30 @@ class ContrastiveClassifierModel(nn.Module):
             for param in self.encoder.parameters():
                 param.requires_grad = False
 
-    def forward(self, input_ids, attention_mask, labels, input_ids_right, attention_mask_right):
+    def forward(self, input_ids, attention_mask, labels, input_ids_right, attention_mask_right, inputs_embeds=None,
+                inputs_embeds_right=None):
 
         if self.pool:
-            output_left = self.encoder(input_ids, attention_mask)
+            if inputs_embeds is not None:
+                output_left = self.encoder(input_ids, attention_mask, inputs_embeds=inputs_embeds)
+            else:
+                output_left = self.encoder(input_ids, attention_mask)
             output_left = mean_pooling(output_left, attention_mask)
 
-            output_right = self.encoder(input_ids_right, attention_mask_right)
+            if inputs_embeds_right is not None:
+                output_right = self.encoder(input_ids, attention_mask, inputs_embeds=inputs_embeds_right)
+            else:
+                output_right = self.encoder(input_ids_right, attention_mask_right)
             output_right = mean_pooling(output_right, attention_mask_right)
         else:
-            output_left = self.encoder(input_ids, attention_mask)['pooler_output']
-            output_right = self.encoder(input_ids_right, attention_mask_right)['pooler_output']
+            if inputs_embeds is not None:
+                output_left = self.encoder(input_ids, attention_mask, inputs_embeds=inputs_embeds)['pooler_output']
+            else:
+                output_left = self.encoder(input_ids, attention_mask)['pooler_output']
+            if inputs_embeds_right is not None:
+                output_right = self.encoder(input_ids, attention_mask, inputs_embeds=inputs_embeds_right)['pooler_output']
+            else:
+                output_right = self.encoder(input_ids_right, attention_mask_right)['pooler_output']
 
         if self.comb_fct == 'concat-abs-diff':
             output = torch.cat((output_left, output_right, torch.abs(output_left - output_right)), -1)

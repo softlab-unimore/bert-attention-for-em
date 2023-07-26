@@ -109,7 +109,7 @@ class DataCollatorContrastiveClassification:
         batch['word_ids_right'] = np.array([batch_right.word_ids(i) for i in range(len(batch_left['input_ids']))])
         batch['sent1'] = np.array(features_left)
         batch['sent2'] = np.array(features_right)
-
+        batch['evidence'] = torch.zeros(len(features_left)).to(dtype=torch.long)
         batch['labels'] = torch.LongTensor(labels)
 
         return batch
