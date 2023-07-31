@@ -24,13 +24,13 @@ def load_results(files):
 
         row = pickle.load(open(f, 'rb'))
         if file_name.startswith('INFERENCE_SBERT'):
-            row['model'] = 'sbert'
+            row['model'] = 'SBERT'
         elif file_name.startswith('INFERENCE_DITTO'):
-            row['model'] = 'ditto'
+            row['model'] = 'Ditto'
         elif file_name.startswith('INFERENCE_SUPCON'):
-            row['model'] = 'supcon'
+            row['model'] = 'SupCon'
         else:
-            row['model'] = 'bert'
+            row['model'] = 'BERT'
         data.append(row)
 
     out = pd.DataFrame(data, columns=columns)
@@ -189,6 +189,15 @@ def save_masking_pair_plot(data):
 
 def save_masking_plot(data, key):
     sel_data = data[data['encoding'] == key]
+
+    # Define a custom order
+    model_order_map = {'BERT': 0, 'SBERT': 1, 'Ditto': 2, 'SupCon': 3}
+    masking_order_map = {'off': 0, 'semantic': 1, 'syntax': 2, "random": 3}
+    sel_data['model_order'] = sel_data['model'].map(model_order_map)
+    sel_data['masking_order'] = sel_data['masking'].map(masking_order_map)
+    sel_data = sel_data.sort_values(['model_order', 'masking_order'])
+    sel_data = sel_data.drop(['model_order', 'masking_order'], axis=1)
+
     ax = sns.boxplot(x="masking", hue="model", y="F1", data=sel_data)
     ax.tick_params(axis='both', which='major', labelsize=14, left=False)
     ax.tick_params(axis='both', which='minor', labelsize=14)
@@ -210,11 +219,6 @@ if __name__ == '__main__':
     target_datasets = perf[perf['true_count'] > 100]['data'].unique()
     perf = perf[perf['data'].isin(target_datasets)]
     perf = perf[['model', 'data', 'tok', 'mask', 'topk_mask', 'true_f1']]
-
-    ssoff = 0.796562
-    saoff = 0.802315
-    ss = [ssoff - 0.06, ssoff - 0.1, ssoff, ssoff - 0.13]
-    perf.loc[(perf['data'] == 'Dirty_Walmart-Amazon') & (perf['model'] == 'sbert'), 'true_f1'] = ss
 
     perf = perf.rename(columns={'tok': 'encoding', 'mask': 'masking', 'true_f1': 'F1'})
     perf = perf[['model', 'encoding', 'masking', 'F1']]

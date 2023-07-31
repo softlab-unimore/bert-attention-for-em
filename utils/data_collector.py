@@ -205,7 +205,6 @@ class DataCollectorSupCon:
 
     def get_path(self, use_case: str, data_type: str):
         assert isinstance(use_case, str), "Wrong use case type."
-        assert use_case in WDC_USE_CASES, "Wrong use case name."
         assert data_type in ['train', 'valid', 'test']
 
         print(f"USE CASE: {use_case}")

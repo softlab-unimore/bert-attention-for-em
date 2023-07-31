@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader, Subset
 from tqdm import tqdm
 import numpy as np
 import torch
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score, classification_report
 import argparse
 
 from utils.data_collector import DM_USE_CASES, DataCollectorWDC, DataCollector, DataCollectorSupCon
@@ -209,7 +209,7 @@ def supcon_clique_effectiveness(uc, lm, data_type, max_len):
     df = dataset.raw_data
     for drop_col in drop_cols:
         if drop_col in df.columns:
-            df = df.drop(drop_cols, axis=1)
+            df = df.drop(drop_col, axis=1)
 
     integrated_data = convert_matching_pairs_to_integrated_dataset(
         data=df,
@@ -247,6 +247,8 @@ def supcon_clique_effectiveness(uc, lm, data_type, max_len):
             if (group_preds == 0).sum() > 0:
                 acc += 1
         print(f"ACC: {acc}/{num_cliques}={acc / num_cliques}")
+
+        print(classification_report(labels, preds))
     else:
         print("No cliques!")
 
@@ -306,6 +308,8 @@ def simple_bert_clique_effectiveness(uc, bench, lm, data_type, approach, max_len
             if (group_preds == 0).sum() > 0:
                 acc += 1
         print(f"ACC: {acc}/{num_cliques}={acc / num_cliques}")
+
+        print(classification_report(labels, preds))
     else:
         print("No cliques!")
 
@@ -325,14 +329,14 @@ if __name__ == '__main__':
     lm = args.bert_model
     max_len = 128
     use_cases = [
-        # ('Structured_DBLP-GoogleScholar', 'valid', 'dm'),
-        # ('Dirty_DBLP-GoogleScholar', 'valid', 'dm'),
-        # ('Structured_DBLP-GoogleScholar', 'test', 'dm'),
-        # ('Dirty_DBLP-GoogleScholar', 'test', 'dm'),
+        ('Structured_DBLP-GoogleScholar', 'valid', 'dm'),
+        ('Dirty_DBLP-GoogleScholar', 'valid', 'dm'),
+        ('Structured_DBLP-GoogleScholar', 'test', 'dm'),
+        ('Dirty_DBLP-GoogleScholar', 'test', 'dm'),
         ('Large_Computers', 'valid', 'wdc'),
-        # ('Large_Cameras', 'valid', 'wdc'),
-        # ('Large_Shoes', 'valid', 'wdc'),
-        # ('Large_Watches', 'valid', 'wdc')
+        ('Large_Cameras', 'valid', 'wdc'),
+        ('Large_Shoes', 'valid', 'wdc'),
+        ('Large_Watches', 'valid', 'wdc')
     ]
 
     for uc, data_type, bench in use_cases:
